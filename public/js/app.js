@@ -484,11 +484,18 @@ $('magnet').addEventListener('change',e=>{S.magnet=e.target.checked;commit();});
 $('scale').addEventListener('change',e=>{S.scale=+e.target.value;commit();});
 $('name').addEventListener('change',e=>{S.name=e.target.value.trim()||'Κάτοψη';commit();});
 $('undo').onclick=undo;
+// 3D: το module φορτώνει μόνο την πρώτη φορά που πατιέται το κουμπί
+$('open3d').onclick=async()=>{
+  const b=$('open3d'); b.disabled=true; b.textContent='3D…';
+  try{const m=await import('./view3d.js'); m.open3D();}
+  catch(err){console.error(err); toast('Η προβολή 3D δεν άνοιξε σε αυτόν τον browser. Δοκίμασε Chrome ή Edge.');}
+  finally{b.disabled=false; b.textContent='3D';}
+};
 $('new').onclick=()=>{S=blank();sel=null;commit();renderAll();toast('Νέα κενή κάτοψη. Η προηγούμενη γυρίζει με Αναίρεση.');};
 $('sample').onclick=()=>{S=sample();sel=null;commit();renderAll();toast('Φορτώθηκε η κάτοψη Athanasiadis ως παράδειγμα.');};
 
 document.addEventListener('keydown',e=>{
-  if(e.target.matches('input,select,textarea')) return;
+  if(e.target.matches('input,select,textarea')||document.body.classList.contains('v3d-open')) return;
   const k=e.key, mod=e.ctrlKey||e.metaKey;
   if(mod&&k.toLowerCase()==='z'){e.preventDefault();undo();return;}
   if(mod&&k.toLowerCase()==='d'){e.preventDefault();act('dup');return;}
@@ -534,7 +541,7 @@ const GR2L={α:'a',ά:'a',β:'v',γ:'g',δ:'d',ε:'e',έ:'e',ζ:'z',η:'i',ή:'i
 const fname=()=>[...(S.name||'Katopsi').toLowerCase()].map(c=>GR2L[c]??c).join('').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').toUpperCase().slice(0,80)||'KATOPSI';
 function toast(t){$('toast').textContent=t;}
-const MIME={pdf:'application/pdf',svg:'image/svg+xml',csv:'text/csv;charset=utf-8',json:'application/json'};
+const MIME={pdf:'application/pdf',svg:'image/svg+xml',csv:'text/csv;charset=utf-8',json:'application/json',dae:'model/vnd.collada+xml',glb:'model/gltf-binary',png:'image/png'};
 function offer(filename,data){
   const ext=filename.split('.').pop(), blob=new Blob([typeof data==='string'&&ext==='pdf'?Uint8Array.from(data,c=>c.charCodeAt(0)&255):data],{type:MIME[ext]||'application/octet-stream'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;

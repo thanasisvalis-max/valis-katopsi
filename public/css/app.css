@@ -110,3 +110,15 @@ input[type=file]{display:none}
 .grp{min-width:0}
 .note,#toast{overflow-wrap:anywhere}
 select{max-width:100%;text-overflow:ellipsis}
+
+/* 3D προβολή */
+.v3d{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;gap:8px;
+  padding:max(10px,env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) max(10px,env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px))}
+.v3d[hidden]{display:none}
+.v3d-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+.v3d-head{display:flex;flex-direction:column;min-width:0}
+.v3d-head span{font-size:12px;color:var(--mute);font-family:var(--mono)}
+.v3d-canvas{flex:1;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#E9ECEF;touch-action:none}
+.v3d-canvas canvas{display:block}
+.v3d-hint{margin:0;font-size:12px;color:var(--mute)}
+body.v3d-open{overflow:hidden}

@@ -8,12 +8,14 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2317202A'/%3E%3Cpath d='M3 3h10v10H3z' fill='none' stroke='%239B9796' stroke-width='1.5'/%3E%3Cpath d='M8 3v10M3 8h10' stroke='%239B9796'/%3E%3C/svg%3E">
 <link rel="preload" href="fonts/commissioner-greek-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/app.css">
+<script type="importmap">{"imports":{"three":"./js/vendor/three/three.module.min.js","three/addons/":"./js/vendor/three/addons/"}}</script>
 </head>
 <body>
 <div class="top">
   <div class="brand">Valis Frames<small>Κάτοψη · v2.1</small></div>
   <input id="name" type="text" aria-label="Όνομα έργου" value="">
   <div class="bar">
+    <button id="open3d" class="pri" title="Τρισδιάστατη προβολή και εξαγωγή για SketchUp">3D</button>
     <button id="undo" title="Αναίρεση (Ctrl+Z)">↶ Αναίρεση</button>
     <button id="new">Νέα κάτοψη</button>
     <button id="sample">Παράδειγμα</button>
@@ -103,6 +105,16 @@
       <p class="note" id="toast">Το PDF 1:10 βγαίνει με περιθώριο 50 cm γύρω από το περίπτερο, όπως οι κατόψεις σας.</p>
     </div>
   </aside>
+</div>
+
+<div id="v3d" class="v3d" hidden role="dialog" aria-modal="true" aria-labelledby="v3d-title">
+  <div class="v3d-bar">
+    <div class="v3d-head"><b>Προβολή 3D</b><span id="v3d-title"></span></div>
+    <div class="seg"><button data-v3d="iso">Ισομετρική</button><button data-v3d="front">Μπροστά</button><button data-v3d="top">Από πάνω</button></div>
+    <div class="seg"><button class="pri" data-v3d="dae">SketchUp (.dae)</button><button data-v3d="glb">GLB</button><button data-v3d="png">Εικόνα PNG</button><button data-v3d="close" aria-label="Κλείσιμο">✕ Κλείσιμο</button></div>
+  </div>
+  <div id="v3d-canvas" class="v3d-canvas"></div>
+  <p class="v3d-hint">Σύρε για περιστροφή · δεξί κλικ ή δύο δάχτυλα για μετακίνηση · ροδέλα για ζουμ · Esc για κλείσιμο</p>
 </div>
 
 <script src="js/config.js"></script>

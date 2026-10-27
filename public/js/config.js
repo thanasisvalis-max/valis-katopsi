@@ -24,3 +24,9 @@ const MAX67=300, WARN67=500, RET=50, SHORT=60;
 
 // Τυποποιημένα ύψη περιπτέρου (cm)
 const HEIGHTS=[250,300,350];
+
+// 3D μοντέλο (cm). Το ύψος των πλαισίων είναι το ύψος περιπτέρου (S.H).
+// doorLeafH = ύψος φύλλου πόρτας. Πάνω από αυτό μπαίνει πρέκι μέχρι το ύψος περιπτέρου.
+// floorH    = πάχος δαπέδου/πλατφόρμας στο 3D.
+const D3={doorLeafH:205, floorH:2,
+  colors:{frameLed:'#FBFAF6', frame:'#ECEBE7', alu:'#A6A4A1', door:'#E4E2DD', floor:'#B7AFA3', ground:'#F3F2EF', edge:'#3A3937'}};
