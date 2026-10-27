@@ -8,32 +8,27 @@
 Δεν χρειάζεται εγκατάσταση. Από τον φάκελο του project:
 
 ```bash
-python3 -m http.server 8080
+python3 -m http.server 8080 -d public
 # άνοιξε http://localhost:8080
 ```
 
-(Λειτουργεί και με διπλό κλικ στο `index.html`.)
+(Λειτουργεί και με διπλό κλικ στο `public/index.html`.)
 
-## Ανέβασμα σε Cloudflare Pages
+## Ανέβασμα σε Cloudflare
 
-1. **GitHub:** δημιούργησε **private** repo `valis-katopsi` και ανέβασε αυτόν τον φάκελο:
-   ```bash
-   git remote add origin https://github.com/<user>/valis-katopsi.git
-   git push -u origin main
-   ```
-2. **Cloudflare** → Workers & Pages → Create → Pages → *Connect to Git* → επίλεξε `valis-katopsi`.
-   - Framework preset: **None**
-   - Build command: *(κενό)*
-   - Build output directory: `/`
-3. **Custom domain:** Pages project → Custom domains → `katopsi.valisframes.gr` (ή όποιο subdomain θέλεις).
-4. **Πρόσβαση μόνο για την ομάδα:** Cloudflare Zero Trust → Access → Applications → Add → Self-hosted
-   → domain `katopsi.valisframes.gr` → Policy: *Allow* → *Emails* → τα emails της ομάδας.
+Το repo είναι συνδεδεμένο με Cloudflare Workers (static assets). Ρύθμιση στο `wrangler.jsonc`:
+δημοσιεύεται **μόνο** ο φάκελος `public/`.
 
-Από εκεί και πέρα κάθε `git push` ανεβαίνει live σε περίπου 1 λεπτό.
+- Build command: *(κενό)*
+- Deploy command: `npx wrangler deploy`
+- Κάθε `git push` στο `main` ανεβαίνει live σε περίπου 1 λεπτό.
+
+**Πρόσβαση μόνο για την ομάδα:** Cloudflare Zero Trust → Access → Applications → Add → Self-hosted
+→ το domain του εργαλείου → Policy: *Allow* → *Emails* → τα emails της ομάδας.
 
 ## Ενημέρωση συμβόλων από Corel
 
 ```bash
 pip install pymupdf
-python3 tools/extract_symbols.py docs/reference/DOOR.pdf docs/reference/CONNECTION_FOR_PROFILES.pdf > js/symbols.js
+python3 tools/extract_symbols.py docs/reference/DOOR.pdf docs/reference/CONNECTION_FOR_PROFILES.pdf > public/js/symbols.js
 ```

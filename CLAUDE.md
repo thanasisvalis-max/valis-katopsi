@@ -18,7 +18,7 @@
 
 | Φάση | Περιεχόμενο | Κατάσταση |
 |---|---|---|
-| **B** | Αυτόνομο site + GitHub + Cloudflare Pages + αυτό το αρχείο γνώσης | ▶ σε εξέλιξη |
+| **B** | Αυτόνομο site + GitHub + Cloudflare Workers + αυτό το αρχείο γνώσης | ▶ σε εξέλιξη |
 | B2 | Supabase: έργα στη βάση αντί για localStorage, login | επόμενο |
 | B3 | Σελίδα «Ρυθμίσεις»: οι κανόνες του `js/config.js` γίνονται επεξεργάσιμοι χωρίς κώδικα | επόμενο |
 | **C** | AI βοηθός μέσα στο εργαλείο (Claude API μέσω Cloudflare Worker, ιστορικό συζητήσεων ανά έργο, προτάσεις αλλαγής κανόνων με έγκριση) | μετά το B |
@@ -31,15 +31,19 @@
 Στατικό site, **χωρίς build step**, χωρίς framework, χωρίς εξωτερικά CDN.
 
 ```
-index.html          markup
-css/app.css         στυλ + @font-face (τοπικά fonts, GDPR)
-js/config.js        ΚΑΝΟΝΕΣ & ΣΤΟΙΧΕΙΑ: η μόνη θέση για επιχειρησιακές τιμές
-js/symbols.js       σύμβολα πόρτας/συνδέσμου εξαγμένα 1:1 από Corel (μην τα αγγίζεις με το χέρι)
-js/app.js           λογική: state, κανόνες, σχεδίαση, μαγνήτης, εξαγωγές
-fonts/              Commissioner + JetBrains Mono (OFL)
-docs/reference/     τα πρωτότυπα PDF από CorelDRAW (πηγή αλήθειας για τη γεωμετρία)
-tools/extract_symbols.py   ξαναβγάζει το js/symbols.js από τα PDF
+public/                    ΜΟΝΟ αυτός ο φάκελος δημοσιεύεται (Cloudflare Workers static assets)
+  index.html               markup
+  css/app.css              στυλ + @font-face (τοπικά fonts, GDPR)
+  js/config.js             ΚΑΝΟΝΕΣ & ΣΤΟΙΧΕΙΑ: η μόνη θέση για επιχειρησιακές τιμές
+  js/symbols.js            σύμβολα πόρτας/συνδέσμου εξαγμένα 1:1 από Corel (μην τα αγγίζεις με το χέρι)
+  js/app.js                λογική: state, κανόνες, σχεδίαση, μαγνήτης, εξαγωγές
+  fonts/                   Commissioner + JetBrains Mono (OFL)
+docs/reference/            τα πρωτότυπα PDF από CorelDRAW (πηγή αλήθειας για τη γεωμετρία). ΔΕΝ δημοσιεύεται
+tools/extract_symbols.py   ξαναβγάζει το public/js/symbols.js από τα PDF
+wrangler.jsonc             ρύθμιση Cloudflare: assets.directory = ./public
 ```
+
+**Deploy:** Cloudflare Workers συνδεδεμένο με το GitHub repo. Κάθε `git push` στο `main` ανεβαίνει live (`npx wrangler deploy`). Ό,τι μπαίνει έξω από το `public/` δεν δημοσιεύεται ποτέ.
 
 Βασικές ιδέες του `app.js`:
 - **Μία ρουτίνα σχεδίασης, δύο έξοδοι:** το `drawPlan(P)` καλείται με `svgPainter` (οθόνη/SVG) ή `pdfPainter` (PDF). Κάθε νέο στοιχείο σχεδιάζεται μία φορά και βγαίνει και στα δύο.
@@ -108,11 +112,12 @@ tools/extract_symbols.py   ξαναβγάζει το js/symbols.js από τα P
 | 2026-10-27 | Κανόνες: πίσω πλευρά αποθήκης χωρίς LED, γυρίσματα σε ελεύθερες άκρες, ύψη 250/300/350 |
 | 2026-10-27 | PRF0067 έως 500 cm OK. Μονοκόμματο 600 επιτρέπεται με πρόταση χωρισμού (όχι αυτόματο) |
 | 2026-10-27 | Μαγνήτης μεταξύ πλαισίων + περιστροφή μέσα στην κάτοψη |
-| 2026-10-27 | Αυτόνομη έκδοση: GitHub + Cloudflare Pages, μετά Supabase, μετά AI βοηθός (Β → Γ) |
+| 2026-10-27 | Αυτόνομη έκδοση: GitHub + Cloudflare, μετά Supabase, μετά AI βοηθός (Β → Γ) |
+| 2026-10-27 | Hosting σε Cloudflare Workers (static assets). Δημόσιος μόνο ο φάκελος `public/` |
 
 ## Πώς δουλεύουμε
 
 - Αλλαγή κανόνα/τιμής → `js/config.js` + ενότητα «Κανόνες» εδώ + γραμμή στο «Ιστορικό αποφάσεων».
 - Νέο στοιχείο συστήματος → PDF στο `docs/reference/`, εξαγωγή με `tools/extract_symbols.py`, εγγραφή στον πίνακα «Στοιχεία».
-- Πριν από commit: `node --check js/*.js`, άνοιγμα `index.html`, έλεγχος ότι το PDF του παραδείγματος βγαίνει σε 1100×700 mm.
+- Πριν από commit: `node --check public/js/*.js`, άνοιγμα `public/index.html`, έλεγχος ότι το PDF του παραδείγματος βγαίνει σε 1100×700 mm.
 - Οι απαντήσεις και τα μηνύματα του UI είναι στα ελληνικά. Ο χρήστης προτιμά άμεση, δομημένη επικοινωνία.
