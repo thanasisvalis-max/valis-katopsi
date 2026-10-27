@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Σχεδιαστής Κάτοψης Valis</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2317202A'/%3E%3Cpath d='M3 3h10v10H3z' fill='none' stroke='%239B9796' stroke-width='1.5'/%3E%3Cpath d='M8 3v10M3 8h10' stroke='%239B9796'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/commissioner-greek-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="top">
+  <div class="brand">Valis Frames<small>Κάτοψη · v2.1</small></div>
+  <input id="name" type="text" aria-label="Όνομα έργου" value="">
+  <div class="bar">
+    <button id="undo" title="Αναίρεση (Ctrl+Z)">↶ Αναίρεση</button>
+    <button id="new">Νέα κάτοψη</button>
+    <button id="sample">Παράδειγμα</button>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="panel">
+    <div class="grp">
+      <div class="lbl">Στοιχεία</div>
+      <div class="tools" id="tools">
+        <button class="tool" data-t="select"><svg viewBox="0 0 44 22"><path d="M18 4 L18 18 L21.5 14.5 L24 19.5 L26 18.5 L23.5 13.5 L28 13.5 Z" fill="#17202A"/></svg><span><b>Επιλογή</b><small>V · μετακίνηση</small></span></button>
+        <button class="tool" data-t="p67"><svg viewBox="0 0 44 22"><rect x="2" y="3.5" width="40" height="2.1" fill="#9B9796" stroke="#2B2A29" stroke-width=".4"/><rect x="2" y="5.6" width="40" height="0.9" fill="#5F5C5B"/><rect x="2" y="6.5" width="40" height="9" fill="#9B9796" stroke="#2B2A29" stroke-width=".4"/><rect x="2" y="15.5" width="40" height="0.9" fill="#5F5C5B"/><rect x="2" y="16.4" width="40" height="2.1" fill="#9B9796" stroke="#2B2A29" stroke-width=".4"/></svg><span><b>Προφίλ 15 cm</b><small>1 · PRF0067 · LED</small></span></button>
+        <button class="tool" data-t="p68"><svg viewBox="0 0 44 22"><rect x="2" y="8.5" width="40" height="2.1" fill="#9B9796" stroke="#2B2A29" stroke-width=".4"/><rect x="2" y="10.6" width="40" height="0.9" fill="#5F5C5B"/><rect x="2" y="11.5" width="40" height="2.1" fill="#9B9796" stroke="#2B2A29" stroke-width=".4"/></svg><span><b>Προφίλ 4,5 cm</b><small>2 · PRF0068 · χωρίς LED</small></span></button>
+        <button class="tool" data-t="door"><svg viewBox="0 0 44 22"><rect x="6" y="3" width="30" height="2" fill="#9B9796" stroke="#2B2A29" stroke-width=".4"/><path d="M12 5 L30 20" stroke="#5F5C5B" stroke-width="2"/><rect x="36" y="2.5" width="3" height="3" fill="#9B9796" stroke="#2B2A29" stroke-width=".4"/></svg><span><b>Πόρτα</b><small>3 · σταθερή · 105×62</small></span></button>
+        <button class="tool" data-t="conn"><svg viewBox="0 0 44 22"><circle cx="22" cy="11" r="6" fill="#9B9796" stroke="#2B2A29" stroke-width=".8"/><rect x="19" y="8" width="6" height="6" fill="#fff" stroke="#2B2A29" stroke-width=".6"/></svg><span><b>Σύνδεσμος</b><small>4 · ένωση προφίλ</small></span></button>
+        <button class="tool" data-t="store"><svg viewBox="0 0 44 22"><rect x="5" y="3" width="34" height="16" fill="#EEF3FB" stroke="#5C6773" stroke-width=".8" stroke-dasharray="2 1.5"/><path d="M12 14 L15 8 L18 14 M20 14 V8 H25 V14 M28 8 V14 M28 11 L32 8 M29.5 10 L32 14" stroke="#5C6773" stroke-width=".9" fill="none"/></svg><span><b>Αποθήκη</b><small>5 · περιοχή αποθήκης</small></span></button>
+      </div>
+      <p class="note" id="hint"></p>
+    </div>
+
+    <div class="grp">
+      <div class="lbl">Περίπτερο (cm)</div>
+      <div class="row">
+        <label class="field"><span>Πρόσοψη</span><input id="W" type="number" min="50" max="3000" step="5"></label>
+        <label class="field"><span>Βάθος</span><input id="D" type="number" min="50" max="3000" step="5"></label>
+      </div>
+      <div class="lbl" style="margin-top:4px">Ύψος περιπτέρου</div>
+      <div class="seg" id="hset"></div>
+      <label class="field"><span>Άλλο ύψος (cm)</span><input id="H" type="number" min="100" max="600" step="5"></label>
+      <div class="lbl" style="margin-top:4px">Κάναβος</div>
+      <div class="seg" id="mod"><button data-v="100">100</button><button data-v="50">50</button></div>
+      <div class="lbl" style="margin-top:4px">Υπόλοιπο κανάβου</div>
+      <div class="seg" id="mode"><button data-v="end">Τέλος</button><button data-v="start">Αρχή</button><button data-v="split">Μοιρασμένο</button></div>
+      <div class="lbl" style="margin-top:4px">Κούμπωμα</div>
+      <div class="seg" id="snap"><button data-v="5">5 cm</button><button data-v="1">1 cm</button></div>
+      <label class="check"><input type="checkbox" id="magnet"> Μαγνήτης μεταξύ πλαισίων</label>
+      <label class="check"><input type="checkbox" id="overall"> Συνολικές διαστάσεις περιπτέρου</label>
+    </div>
+
+    <div class="grp">
+      <div class="lbl">Συντομεύσεις</div>
+      <div class="keys">
+        <kbd>V 1–5</kbd><span>εργαλεία</span>
+        <kbd>R</kbd><span>περιστροφή 90°</span>
+        <kbd>F</kbd><span>αλλαγή πλευράς πόρτας</span>
+        <kbd>← → ↑ ↓</kbd><span>μετακίνηση (Shift ×10)</span>
+        <kbd>Alt</kbd><span>σύρσιμο χωρίς μαγνήτη</span>
+        <kbd>Ctrl D</kbd><span>αντίγραφο</span>
+        <kbd>Del</kbd><span>διαγραφή</span>
+        <kbd>+ − 0</kbd><span>ζουμ · όλο</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="sheet">
+    <div class="paper"><div class="zoom"><button id="zout" aria-label="Σμίκρυνση">−</button><button id="zfit">Όλο</button><button id="zin" aria-label="Μεγέθυνση">+</button></div><svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Κάτοψη περιπτέρου"></svg></div>
+    <div class="status"><span id="stat"></span><span>Ροδέλα για ζουμ · σύρε σε κενό σημείο για μετακίνηση · Θέση: <code id="pos">–</code></span></div>
+  </main>
+
+  <aside class="panel side">
+    <div class="grp" id="insp"></div>
+    <div class="grp">
+      <div class="lbl">Έλεγχος κανόνων<span class="count" id="icount">0</span></div>
+      <div class="iss" id="rules"></div>
+    </div>
+    <div class="grp">
+      <div class="lbl">Λίστα υλικών</div>
+      <div id="bom"></div>
+    </div>
+    <div class="grp">
+      <div class="lbl">Εξαγωγή</div>
+      <div class="row">
+        <label class="field"><span>Κλίμακα PDF / SVG</span>
+          <select id="scale"><option value="10">1:10 (όπως τα αρχεία σας)</option><option value="20">1:20</option><option value="50">1:50</option></select></label>
+      </div>
+      <div class="seg">
+        <button class="pri" id="xpdf">PDF</button>
+        <button id="xsvg">SVG</button>
+        <button id="xcsv">Λίστα CSV</button>
+      </div>
+      <div class="seg">
+        <button id="xjson">Αποθήκευση έργου</button>
+        <button id="ojson">Άνοιγμα έργου</button>
+        <input type="file" id="fjson" accept=".json,application/json">
+      </div>
+      <p class="note" id="toast">Το PDF 1:10 βγαίνει με περιθώριο 50 cm γύρω από το περίπτερο, όπως οι κατόψεις σας.</p>
+    </div>
+  </aside>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/symbols.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

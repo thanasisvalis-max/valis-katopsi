@@ -1,0 +1,112 @@
+/* Τοπικά fonts (χωρίς Google Fonts, για GDPR) */
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/commissioner-greek-400-normal.woff2) format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/commissioner-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:500;font-display:swap;src:url(../fonts/commissioner-greek-500-normal.woff2) format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:500;font-display:swap;src:url(../fonts/commissioner-latin-500-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/commissioner-greek-600-normal.woff2) format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/commissioner-latin-600-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/commissioner-greek-700-normal.woff2) format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'Commissioner';font-style:normal;font-weight:700;font-display:swap;src:url(../fonts/commissioner-latin-700-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/jetbrains-mono-greek-400-normal.woff2) format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url(../fonts/jetbrains-mono-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/jetbrains-mono-greek-600-normal.woff2) format('woff2');unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;font-display:swap;src:url(../fonts/jetbrains-mono-latin-600-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+/* Βασικό reset (σε claude.ai το έδινε η πλατφόρμα) */
+:root{color-scheme:light}
+html,body{margin:0}
+body{font-size:14px;font-family:var(--body)}
+img{max-width:100%}
+[hidden]{display:none!important}
+/* Layout: drafting table — tools rail left, paper sheet centre, inspector + parts list right; stacks on narrow screens.
+   The drawing sheet is always white paper in both themes, because it is the printed plan. */
+:root{
+  --bg:#E8EBEE; --panel:#FAFBFC; --ink:#17202A; --mute:#5C6773; --line:#CBD2D9;
+  --accent:#1F4FD1; --accent-ink:#FFFFFF; --paper:#FFFFFF; --dim:#2E73A8;
+  --warn:#A8440E; --warn-bg:#FCE7D9;
+  --body:"Commissioner",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F151C; --panel:#18212B; --ink:#E6ECF2; --mute:#98A4B1; --line:#2E3C4A;
+  --accent:#7097FF; --accent-ink:#0B1220; --paper:#FFFFFF; --dim:#7DB3E0;
+  --warn:#FFB38A; --warn-bg:#3A2418; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F151C; --panel:#18212B; --ink:#E6ECF2; --mute:#98A4B1; --line:#2E3C4A;
+  --accent:#7097FF; --accent-ink:#0B1220; --paper:#FFFFFF; --dim:#7DB3E0;
+  --warn:#FFB38A; --warn-bg:#3A2418; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;
+  padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px));padding-block:14px 28px}
+button,input,select{font:inherit;color:inherit}
+.top{max-width:1900px;margin:0 auto 12px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.brand{font-weight:700;font-size:18px;letter-spacing:-.01em;white-space:nowrap}
+.brand small{font-weight:500;color:var(--mute);font-size:12px;margin-left:6px}
+#name{flex:1 1 260px;min-width:0;font-weight:600;font-size:15px;padding:7px 10px;border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+.bar{display:flex;flex-wrap:wrap;gap:6px}
+.app{max-width:1900px;margin:0 auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}
+.side{grid-column:1 / -1;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;align-items:start}
+@media (min-width:1500px){.app{grid-template-columns:220px minmax(0,1fr) 300px}.side{grid-column:auto;display:flex}}
+@media (max-width:760px){.app{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.grp{display:flex;flex-direction:column;gap:7px}
+.tools{display:flex;flex-direction:column;gap:6px}
+@media (max-width:760px){.tools{flex-direction:row;flex-wrap:wrap}.tools .tool{flex:1 1 140px}}
+.tool{display:grid;grid-template-columns:44px 1fr;align-items:center;gap:8px;text-align:left;padding:7px 8px;border:1px solid var(--line);border-radius:5px;background:var(--panel);cursor:pointer}
+.tool svg{width:44px;height:22px;background:var(--paper);border-radius:3px}
+.tool b{display:block;font-size:13px;font-weight:600}
+.tool small{display:block;font-size:11px;color:var(--mute);font-family:var(--mono)}
+.tool[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:6px 10px;font-size:13px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+button:disabled{opacity:.45;cursor:not-allowed}
+.seg{display:flex;flex-wrap:wrap;gap:5px}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.row{display:flex;gap:8px;align-items:end}
+.field{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.field span{font-size:12px;color:var(--mute)}
+input[type=number],select{width:100%;font-family:var(--mono);font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}
+select{font-family:var(--body);font-size:14px}
+.check{display:flex;gap:8px;align-items:center;font-size:13px}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.paper{background:var(--paper);border-radius:3px;overflow:hidden;position:relative}
+.zoom{position:absolute;right:8px;top:8px;display:flex;gap:4px}
+.zoom button{background:#FFFFFF;color:#17202A;border-color:#CBD2D9;min-width:34px;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+#plan.pan{cursor:grabbing}
+#plan{display:block;width:100%;height:calc(100vh - 150px);min-height:420px;touch-action:none;user-select:none;-webkit-user-select:none}
+#plan.draw{cursor:crosshair}
+#plan .el{cursor:move}
+.status{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;font-size:12px;color:var(--mute)}
+.status code{font-family:var(--mono);color:var(--ink)}
+.note{font-size:12px;color:var(--mute);margin:0}
+table{border-collapse:collapse;width:100%;font-size:13px}
+td,th{text-align:left;padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);font-weight:600}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.code{font-family:var(--mono);font-size:12px;font-weight:600}
+.pill{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;padding:1px 5px;border-radius:3px;background:#F6D97A;color:#3B2C00;margin-left:4px}
+.pill.off{background:var(--line);color:var(--ink)}
+.tot td{font-weight:600;border-bottom:none}
+.selhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.selhead b{font-size:15px}
+.empty{border:1px dashed var(--line);border-radius:5px;padding:12px;color:var(--mute);font-size:13px}
+.keys{font-size:12px;color:var(--mute);display:grid;grid-template-columns:auto 1fr;gap:3px 10px}
+kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:var(--bg);color:var(--ink)}
+#toast{min-height:18px}
+input[type=file]{display:none}
+.iss{display:flex;flex-direction:column;gap:8px}
+.issue{border:1px solid var(--line);border-left:3px solid var(--sev);border-radius:5px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+.issue p{margin:0;font-size:13px;cursor:pointer}
+.issue .seg button{font-size:12px;padding:4px 8px}
+.issue.warn{--sev:#D9822B}.issue.err{--sev:#C8382C}
+.ok{font-size:13px;color:var(--mute);border:1px dashed var(--line);border-radius:5px;padding:10px}
+.count{font-family:var(--mono);font-size:11px;border-radius:9px;padding:0 7px;margin-left:6px;background:#D9822B;color:#fff;letter-spacing:0}
+.count.zero{background:var(--line);color:var(--ink)}
+.frame{font-family:var(--mono);font-size:12px;color:var(--mute)}
+
+/* σταθερότητα στηλών: μακριές λέξεις (ονόματα αρχείων) δεν σπρώχνουν τα πάνελ */
+.grp{min-width:0}
+.note,#toast{overflow-wrap:anywhere}
+select{max-width:100%;text-overflow:ellipsis}
