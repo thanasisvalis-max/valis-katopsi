@@ -297,7 +297,7 @@ function bomRows(){
     if(e.type==='store') return;
     if(isProf(e)){code=PROF[e.type].code; len=e.len;
       desc=e.type==='p67'?(lit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'; key=code+desc+len;}
-    else if(e.type==='door'){code='DOOR';desc='Πόρτα';key='door';}
+    else if(e.type==='door'){code='DOOR';desc=`Πόρτα ${DOOR.w}×${S.H} · εκτυπώσεις: φύλλο ${String(DOOR.leafW).replace('.',',')}×${String(DOOR.leafH).replace('.',',')}, πλαϊνό ${DOOR.side}×${DOOR.sideH}, κορωνίδα ${DOOR.w}×${Math.max(0,S.H-DOOR.sideH)}`;key='door';}
     else {code='CONN';desc='Σύνδεσμος προφίλ';key='conn';}
     g[key]=g[key]||{code,desc,len,qty:0}; g[key].qty++;});
   return Object.values(g).sort((a,b)=>a.code.localeCompare(b.code)||a.desc.localeCompare(b.desc)||(b.len||0)-(a.len||0));

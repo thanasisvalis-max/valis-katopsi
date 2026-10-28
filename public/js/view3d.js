@@ -28,16 +28,36 @@ function parts(){
         face:(tag,n)=>tag==='side'&&n[0]*inn[0]+n[2]*inn[1]>.9?'graphic':'frame'});
     } else if(el.type==='conn'){
       const b=bbox(el); out.push({name:'CONN',quad:rect(b.x,b.y,b.w,b.h),z0:0,z1:H,face:all('alu')});
-    } else if(el.type==='door'){
-      const m=symMatrix(el).m, tf=([x,y])=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
-      const leafH=Math.min(D3.doorLeafH,H);
-      if(H>leafH+2) out.push({name:'DOOR_PREKI',quad:rect(0.11,0.17,100,5).map(tf),z0:leafH,z1:H,face:all('frame')});
-      [0,1].forEach(i=>{const nums=SYM.door[i].d.match(/-?\d+(\.\d+)?/g).map(Number);
-        out.push({name:'DOOR_FYLLO',quad:[0,2,4,6].map(k=>tf([nums[k],nums[k+1]])),z0:0,z1:leafH,face:all('door')});});
-      out.push({name:'DOOR_CONN',quad:rect(100.33,0.29,4.56,4.56).map(tf),z0:0,z1:H,face:all('alu')});
-    }
+    } else if(el.type==='door') out.push(...doorPieces(el));
   });
   return out;
+}
+
+/* Πόρτα 3D (όψη: πλαϊνό 20 | φύλλο 78,5 · από πάνω κορωνίδα). Τοπικές συντεταγμένες του συμβόλου Corel:
+   x κατά μήκος της πόρτας (0..100), y κάθετα στον τοίχο, η μπάρα στο y 0,17..5,17. Το tf εφαρμόζει περιστροφή / αλλαγή πλευράς / αναστροφή.
+   Κλειστή by default· ανοιχτή (S.doorOpen3d) = το φύλλο γυρίζει 45° γύρω από τον μεντεσέ, όπως στο σύμβολο της κάτοψης. */
+const PIECE_LABEL={leaf:'Φύλλο πόρτας',side:'Πλαϊνό πόρτας',crown:'Κορωνίδα πόρτας'};
+function doorPieces(el){
+  const m=symMatrix(el).m, tf=([x,y])=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
+  const H=S.H, d=DOOR, y0=0.17, yc=y0+d.t/2, out=[];
+  const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
+  const piece=(piece,name,loc,z0,z1)=>{const q=loc.map(tf), ax=[q[3][0]-q[0][0],q[3][1]-q[0][1]], L=Math.hypot(...ax)||1, a=[ax[0]/L,ax[1]/L];
+    out.push({name,el:el.id,piece,ax:a,quad:q,z0,z1,face:(tag,n)=>tag==='side'&&Math.abs(n[0]*a[0]+n[2]*a[1])>.9?'door':'frame'});};
+  piece('side','DOOR_PLAINO',rect(0,y0,d.side,d.t),0,Math.min(d.sideH,H));
+  if(H>d.sideH+1) piece('crown','DOOR_KORONIDA',rect(0,y0,d.w,d.t),d.sideH,H);
+  const hx=d.side+d.gap, leaf=rect(hx,yc-d.leafT/2,d.leafW,d.leafT);
+  const th=(S.doorOpen3d?d.openDeg:0)*Math.PI/180, c=Math.cos(th), s=Math.sin(th);
+  piece('leaf','DOOR_FYLLO',leaf.map(([x,y])=>{const dx=x-hx, dy=y-yc; return [hx+dx*c-dy*s, yc+dx*s+dy*c];}),0,Math.min(d.leafH,H));
+  out.push({name:'DOOR_CONN',quad:rect(100.33,0.29,4.56,4.56).map(tf),z0:0,z1:H,face:()=>'alu'});
+  return out;
+}
+// οι δύο μεγάλες όψεις ενός κομματιού πόρτας, με το ποια κοιτάει προς το εσωτερικό του περιπτέρου
+function pieceFaces(p){
+  const q=p.quad, a=p.ax, cx=S.W/2, cy=S.D/2;
+  return [[q[0],q[1],[-a[0],-a[1]]],[q[3],q[2],[a[0],a[1]]]].map(([e1,e2,n])=>{
+    const mid=[(e1[0]+e2[0])/2,(e1[1]+e2[1])/2];
+    return {e1,e2,n,inward:n[0]*(cx-mid[0])+n[1]*(cy-mid[1])>0};
+  });
 }
 function prismTris(p){
   const q=p.quad, B=q.map(([x,y])=>[x,p.z0,y]), T=q.map(([x,y])=>[x,p.z1,y]);
@@ -56,13 +76,24 @@ function prismTris(p){
 const colorOf=m=>m==='graphic'?gfxColor():D3.colors[m];
 
 /* ---------- 2. Επιφάνειες για γραφικά ----------
-   Κλειδί επιφάνειας: '<id στοιχείου>:in' (εσωτερική όψη), '<id>:out' (εξωτερική), 'floor' (δάπεδο).
+   Κλειδί επιφάνειας: '<id στοιχείου>:in' (εσωτερική όψη), '<id>:out' (εξωτερική), 'floor' (δάπεδο),
+   για πόρτες '<id>:leaf|side|crown:in|out' (φύλλο / πλαϊνό / κορωνίδα).
    surface(key) → γωνίες [κάτω-αριστ, κάτω-δεξ, πάνω-δεξ, πάνω-αριστ] σε (x,h,y) cm όπως τις βλέπει κάποιος μπροστά από την όψη. */
 const OFF=0.3; // cm: το γραφικό «κάθεται» λίγο πάνω από την όψη του πλαισίου
 function surface(key){
   if(key==='floor') return {key,w:S.W,h:S.D,label:`Δάπεδο · ${fmt(S.W)} × ${fmt(S.D)} cm`,
     c:[[0,OFF,S.D],[S.W,OFF,S.D],[S.W,OFF,0],[0,OFF,0]],n:[0,1,0]};
-  const [id,side]=key.split(':'), el=S.els.find(e=>e.id===id); if(!el||!isProf(el)) return null;
+  const [id,side,dside]=key.split(':'), el=S.els.find(e=>e.id===id); if(!el) return null;
+  if(el.type==='door'){
+    const p=doorPieces(el).find(o=>o.piece===side); if(!p) return null;
+    const F=pieceFaces(p), want=dside==='in', f=F.find(o=>o.inward===want)||F[want?1:0];
+    const [nx,ny]=f.n, r=[ny,-nx], o=[nx*OFF,ny*OFF];
+    let [L,Rt]=[f.e1,f.e2]; if(L[0]*r[0]+L[1]*r[1]>Rt[0]*r[0]+Rt[1]*r[1]) [L,Rt]=[Rt,L];
+    const w=Math.hypot(Rt[0]-L[0],Rt[1]-L[1]), h=p.z1-p.z0;
+    return {key,w,h,label:`${PIECE_LABEL[side]} · ${fmt(w)} × ${fmt(h)} cm · ${want?'εσωτερική':'εξωτερική'} όψη`,
+      c:[[L[0]+o[0],p.z0,L[1]+o[1]],[Rt[0]+o[0],p.z0,Rt[1]+o[1]],[Rt[0]+o[0],p.z1,Rt[1]+o[1]],[L[0]+o[0],p.z1,L[1]+o[1]]],n:[nx,0,ny]};
+  }
+  if(!isProf(el)) return null;
   const b=bbox(el), inn=innOf(el,b), s=side==='in'?1:-1, H=S.H, code=PROF[el.type].code;
   const label=`${code} · ${fmt(el.len)} × ${fmt(H)} cm · ${side==='in'?'εσωτερική':'εξωτερική'} όψη`;
   if(el.dir==='h'){
@@ -196,6 +227,8 @@ function pick(clientX,clientY){
     if(h.object.userData.surface) return h.object.userData.surface;
     const p=h.object.userData.part; if(!p||!p.el) continue;
     if(p.el==='floor') return h.face.normal.y>.9?'floor':null;
+    if(p.piece){const n=h.face.normal, d=n.x*p.ax[0]+n.z*p.ax[1]; if(Math.abs(d)<.9) return null;
+      const f=pieceFaces(p)[d>0?1:0]; return `${p.el}:${p.piece}:${f.inward?'in':'out'}`;}
     const n=h.face.normal, d=n.x*p.inn[0]+n.z*p.inn[1];
     if(Math.abs(d)>.9) return `${p.el}:${d>0?'in':'out'}`;
     return null; // κορυφή ή άκρη προφίλ
@@ -252,7 +285,7 @@ export function open3D(){
   const box=$('v3d'), host=$('v3d-canvas');
   box.hidden=false; document.body.classList.add('v3d-open');
   $('v3d-title').textContent=`${S.name||'Κάτοψη'} · ${S.W/100} × ${S.D/100} m · ύψος ${S.H} cm`;
-  $('v3d-color').value=gfxColor(); $('v3d-person').checked=S.person3d!==false;
+  $('v3d-color').value=gfxColor(); $('v3d-person').checked=S.person3d!==false; $('v3d-door').checked=!!S.doorOpen3d;
   if(R) close3D(true);
   const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
   renderer.setPixelRatio(Math.min(2,devicePixelRatio)); renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -282,6 +315,14 @@ export function close3D(keepOpen){
     Object.values(R.mats).forEach(m=>m.dispose());
     R.renderer.dispose(); R.renderer.domElement.remove(); R=null;}
   if(!keepOpen){$('v3d').hidden=true; document.body.classList.remove('v3d-open');}
+}
+
+function rebuildModel(){
+  if(!R) return;
+  R.scene.remove(R.model); R.model.traverse(o=>o.geometry&&o.geometry.dispose());
+  R.list=parts(); R.model=buildModel(R.list,R.mats); R.scene.add(R.model);
+  if(R.selKey&&!surface(R.selKey)) R.selKey=null;
+  refreshGraphics(); renderPanel();
 }
 
 /* ---------- 7. Εξαγωγές ---------- */
@@ -343,6 +384,7 @@ host.addEventListener('drop',async e=>{
 });
 $('v3d-color').addEventListener('input',e=>{S.gfx3d=e.target.value; if(R) R.mats.graphic.color.set(S.gfx3d);});
 $('v3d-color').addEventListener('change',()=>commit());
+$('v3d-door').addEventListener('change',e=>{S.doorOpen3d=e.target.checked; commit(); rebuildModel();});
 $('v3d-person').addEventListener('change',e=>{S.person3d=e.target.checked; if(R) R.person.visible=S.person3d; commit();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&R) close3D();});
 export {parts,toDAE,prismTris,surface,setGraphic,select,exportDAE};
