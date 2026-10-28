@@ -29,6 +29,15 @@ function parts(){
     } else if(el.type==='conn'){
       const b=bbox(el); out.push({name:'CONN',quad:rect(b.x,b.y,b.w,b.h),z0:0,z1:H,face:all('alu')});
     } else if(el.type==='door') out.push(...doorPieces(el));
+    else if(isProd(el)){
+      const pr=PRODUCTS[el.type], tf=tfOf(el);
+      prodRects(el).forEach(([x,y,w,d,role])=>{
+        const q=[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf);
+        if(role==='foot') out.push({name:`${pr.code.replace(/ /g,'_')}_PODI`,quad:q,z0:0,z1:pr.foot.h,face:all('alu')});
+        else out.push({name:`${pr.code.replace(/ /g,'_')}_${pr.dims}`,el:el.id,prod:true,quad:q,z0:0,z1:pr.h,
+          face:tag=>tag==='side'?'graphic':'frame'});
+      });
+    }
   });
   return out;
 }
@@ -50,6 +59,15 @@ function doorPieces(el){
   piece('leaf','DOOR_FYLLO',leaf.map(([x,y])=>{const dx=x-hx, dy=y-yc; return [hx+dx*c-dy*s, yc+dx*s+dy*c];}),0,Math.min(d.leafH,H));
   out.push({name:'DOOR_CONN',quad:rect(100.33,0.29,4.56,4.56).map(tf),z0:0,z1:H,face:()=>'alu'});
   return out;
+}
+// σώμα προϊόντος LED (χωρίς πόδια) και οι 4 κάθετες όψεις του
+const parts1=el=>{const pr=PRODUCTS[el.type], tf=tfOf(el), r=prodRects(el).find(o=>o[4]==='body'); if(!r) return null;
+  const [x,y,w,d]=r; return {quad:[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf),z0:0,z1:pr.h};};
+function prodFace(p,i){
+  const q=p.quad, e1=q[i], e2=q[(i+1)%4], cx=q.reduce((s,v)=>s+v[0],0)/4, cy=q.reduce((s,v)=>s+v[1],0)/4;
+  let n=[e2[1]-e1[1],-(e2[0]-e1[0])]; const L=Math.hypot(...n)||1; n=[n[0]/L,n[1]/L];
+  const mx=(e1[0]+e2[0])/2-cx, my=(e1[1]+e2[1])/2-cy; if(n[0]*mx+n[1]*my<0) n=[-n[0],-n[1]];
+  return {e1,e2,n};
 }
 // οι δύο μεγάλες όψεις ενός κομματιού πόρτας, με το ποια κοιτάει προς το εσωτερικό του περιπτέρου
 function pieceFaces(p){
@@ -77,13 +95,27 @@ const colorOf=m=>m==='graphic'?gfxColor():D3.colors[m];
 
 /* ---------- 2. Επιφάνειες για γραφικά ----------
    Κλειδί επιφάνειας: '<id στοιχείου>:in' (εσωτερική όψη), '<id>:out' (εξωτερική), 'floor' (δάπεδο),
-   για πόρτες '<id>:leaf|side|crown:in|out' (φύλλο / πλαϊνό / κορωνίδα).
+   για πόρτες '<id>:leaf|side|crown:in|out' (φύλλο / πλαϊνό / κορωνίδα),
+   για προϊόντα LED '<id>:s0..s3' (πλευρές) και '<id>:top' (πάνω όψη, όχι στο banner).
    surface(key) → γωνίες [κάτω-αριστ, κάτω-δεξ, πάνω-δεξ, πάνω-αριστ] σε (x,h,y) cm όπως τις βλέπει κάποιος μπροστά από την όψη. */
 const OFF=0.3; // cm: το γραφικό «κάθεται» λίγο πάνω από την όψη του πλαισίου
 function surface(key){
   if(key==='floor') return {key,w:S.W,h:S.D,label:`Δάπεδο · ${fmt(S.W)} × ${fmt(S.D)} cm`,
     c:[[0,OFF,S.D],[S.W,OFF,S.D],[S.W,OFF,0],[0,OFF,0]],n:[0,1,0]};
   const [id,side,dside]=key.split(':'), el=S.els.find(e=>e.id===id); if(!el) return null;
+  if(isProd(el)){
+    const p=parts1(el), pr=PRODUCTS[el.type]; if(!p) return null;
+    const xs=p.quad.map(q=>q[0]), ys=p.quad.map(q=>q[1]), x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+    if(side==='top'){ if(el.type==='banner') return null; const z=p.z1+OFF;
+      return {key,w:x1-x0,h:y1-y0,label:`${pr.code} · πάνω όψη · ${fmt(x1-x0)} × ${fmt(y1-y0)} cm`,c:[[x0,z,y1],[x1,z,y1],[x1,z,y0],[x0,z,y0]],n:[0,1,0]};}
+    const i=+String(side).slice(1); if(!(i>=0&&i<4)) return null;
+    const f=prodFace(p,i), [nx,ny]=f.n, r=[ny,-nx], o=[nx*OFF,ny*OFF];
+    let [L,Rt]=[f.e1,f.e2]; if(L[0]*r[0]+L[1]*r[1]>Rt[0]*r[0]+Rt[1]*r[1]) [L,Rt]=[Rt,L];
+    const w=Math.hypot(Rt[0]-L[0],Rt[1]-L[1]), h=p.z1-p.z0;
+    const nm=Math.abs(nx)>Math.abs(ny)?(nx>0?'δεξιά':'αριστερή'):(ny>0?'μπροστινή':'πίσω');
+    return {key,w,h,label:`${pr.code} · ${nm} όψη · ${fmt(w)} × ${fmt(h)} cm`,
+      c:[[L[0]+o[0],p.z0,L[1]+o[1]],[Rt[0]+o[0],p.z0,Rt[1]+o[1]],[Rt[0]+o[0],p.z1,Rt[1]+o[1]],[L[0]+o[0],p.z1,L[1]+o[1]]],n:[nx,0,ny]};
+  }
   if(el.type==='door'){
     const p=doorPieces(el).find(o=>o.piece===side); if(!p) return null;
     const F=pieceFaces(p), want=dside==='in', f=F.find(o=>o.inward===want)||F[want?1:0];
@@ -227,6 +259,8 @@ function pick(clientX,clientY){
     if(h.object.userData.surface) return h.object.userData.surface;
     const p=h.object.userData.part; if(!p||!p.el) continue;
     if(p.el==='floor') return h.face.normal.y>.9?'floor':null;
+    if(p.prod){const n=h.face.normal; if(n.y>.9) return `${p.el}:top`; if(Math.abs(n.y)>.1) return null;
+      for(let i=0;i<4;i++){const f=prodFace(p,i); if(n.x*f.n[0]+n.z*f.n[1]>.9) return `${p.el}:s${i}`;} return null;}
     if(p.piece){const n=h.face.normal, d=n.x*p.ax[0]+n.z*p.ax[1]; if(Math.abs(d)<.9) return null;
       const f=pieceFaces(p)[d>0?1:0]; return `${p.el}:${p.piece}:${f.inward?'in':'out'}`;}
     const n=h.face.normal, d=n.x*p.inn[0]+n.z*p.inn[1];
