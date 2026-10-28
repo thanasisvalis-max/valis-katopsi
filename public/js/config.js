@@ -34,16 +34,20 @@ const HEIGHTS=[250,300,350];
 const DOOR={w:100, side:20, sideH:200, gap:1.5, leafW:78.5, leafH:198.5, t:5, leafT:4, openDeg:45};
 const D3={floorH:2, personH:175,
   // Στυλ SketchUp: έγχρωμη η εσωτερική όψη (γραφικό), λευκά τα πλαϊνά/κορυφή του προφίλ, μαύρα περιγράμματα
-  colors:{graphic:'#F2C75C', frame:'#F7F7F5', alu:'#A6A4A1', door:'#E9E8E4', floor:'#EDEDEB', bg:'#CDCDC9', edge:'#151515', person:'#5B6B80'},
+  colors:{graphic:'#F2C75C', melamine:'#D8D3C8', frame:'#F7F7F5', alu:'#A6A4A1', door:'#E9E8E4', floor:'#EDEDEB', bg:'#CDCDC9', edge:'#151515', person:'#5B6B80'},
   edgePx:1.6};
 
 // Προϊόντα LED (σταθερές διαστάσεις, cm). w = πλάτος, d = βάθος (αποτύπωμα κάτοψης), h = ύψος.
 // Στην κάτοψη: γκρι παραλληλόγραμμο με ετικέτα, όπως τα σύμβολα του Θανάση.
 // LED BANNER: πάνελ 100 × 8 (πάχος προφίλ) × 200 ύψος, με 2 πόδια 5 × 35 στα 5 και 90 cm (αποτύπωμα 100 × 35).
 const PRODUCTS={
-  cube:  {code:'LED CUBE',      dims:'50X50X50',  w:50, d:50, h:50,  fill:'#9B9796', key:'6'},
-  pylon: {code:'LED PYLON',     dims:'50X50X100', w:50, d:50, h:100, fill:'#9B9796', key:'7'},
-  desk:  {code:'LED INFO DESK', dims:'90X90X47',  w:90, d:47, h:90,  fill:'#C4C4C4', key:'8'},
-  banner:{code:'LED BANNER',    dims:'100X200',   w:100,d:35, h:200, fill:'#C4C4C4', key:'9', bar:8, foot:{w:5, at:[5,90], h:3}}
+  cube:  {code:'LED CUBE',      dims:'50X50X50',  w:50, d:50, h:50,  fill:'#9B9796', key:'6', print:['s0','s1','s2','s3'], topOption:true},
+  pylon: {code:'LED PYLON',     dims:'50X50X100', w:50, d:50, h:100, fill:'#9B9796', key:'7', print:['s0','s1','s2','s3'], topOption:true},
+  desk:  {code:'LED INFO DESK', dims:'90X90X47',  w:90, d:47, h:90,  fill:'#C4C4C4', key:'8', print:['s1','s2','s3']},
+  banner:{code:'LED BANNER',    dims:'100X200',   w:100,d:35, h:200, fill:'#C4C4C4', key:'9', print:['s0','s2'], bar:8, foot:{w:5, at:[5,90], h:3}}
 };
+// Όψεις εκτύπωσης (τοπικά, πριν την περιστροφή): s0 = πίσω (y=0), s1 = δεξιά, s2 = ΜΠΡΟΣΤΑ (y=βάθος), s3 = αριστερά, top = πάνω.
+//  desk: μπροστά + 2 πλαϊνά (πίσω και πάνω δεν τυπώνονται) · banner: οι 2 μεγάλες όψεις
+//  cube/pylon: επιλογή ανά τεμάχιο el.top = 'print' (α: 5 πλευρές, default) ή 'melamine' (β: 4 πλευρές + μελαμίνη πάνω)
+function printFaces(el){const p=PRODUCTS[el.type]; if(!p) return []; return p.topOption&&el.top!=='melamine'?[...p.print,'top']:p.print;}
 Object.entries(PRODUCTS).forEach(([k,p])=>{SYMBOX[k]=[p.w,p.d];});

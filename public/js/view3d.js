@@ -35,7 +35,10 @@ function parts(){
         const q=[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf);
         if(role==='foot') out.push({name:`${pr.code.replace(/ /g,'_')}_PODI`,quad:q,z0:0,z1:pr.foot.h,face:all('alu')});
         else out.push({name:`${pr.code.replace(/ /g,'_')}_${pr.dims}`,el:el.id,prod:true,quad:q,z0:0,z1:pr.h,
-          face:tag=>tag==='side'?'graphic':'frame'});
+          face:(tag,n)=>{const pf=printFaces(el);
+            if(tag==='top') return pf.includes('top')?'graphic':el.top==='melamine'?'melamine':'frame';
+            if(tag!=='side') return 'frame';
+            const pp={quad:q}; for(let i=0;i<4;i++){const f=prodFace(pp,i); if(n[0]*f.n[0]+n[2]*f.n[1]>.9) return pf.includes('s'+i)?'graphic':'frame';} return 'frame';}});
       });
     }
   });
@@ -106,7 +109,8 @@ function surface(key){
   if(isProd(el)){
     const p=parts1(el), pr=PRODUCTS[el.type]; if(!p) return null;
     const xs=p.quad.map(q=>q[0]), ys=p.quad.map(q=>q[1]), x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
-    if(side==='top'){ if(el.type==='banner') return null; const z=p.z1+OFF;
+    if(!printFaces(el).includes(side)) return null; // η όψη δεν τυπώνεται
+    if(side==='top'){ const z=p.z1+OFF;
       return {key,w:x1-x0,h:y1-y0,label:`${pr.code} · πάνω όψη · ${fmt(x1-x0)} × ${fmt(y1-y0)} cm`,c:[[x0,z,y1],[x1,z,y1],[x1,z,y0],[x0,z,y0]],n:[0,1,0]};}
     const i=+String(side).slice(1); if(!(i>=0&&i<4)) return null;
     const f=prodFace(p,i), [nx,ny]=f.n, r=[ny,-nx], o=[nx*OFF,ny*OFF];
@@ -149,7 +153,7 @@ function validGfx(){ return Object.entries(S.gfx||{}).map(([k,g])=>({k,g,sf:surf
 
 /* ---------- 3. COLLADA (.dae) για SketchUp ----------
    Z πάνω, μονάδα cm, κάθε πλαίσιο ξεχωριστό node. Γραφικά = ξεχωριστά nodes με υφή από textures/. */
-const DAE_NAME={graphic:'GRAFIKO',frame:'PLAISIO',alu:'ALOUMINIO',door:'PORTA',floor:'DAPEDO'};
+const DAE_NAME={graphic:'GRAFIKO',frame:'PLAISIO',alu:'ALOUMINIO',door:'PORTA',floor:'DAPEDO',melamine:'MELAMINI'};
 function toDAE(list,gfx){
   const hex=h=>[1,3,5].map(i=>(parseInt(h.substr(i,2),16)/255).toFixed(4)).join(' ');
   const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
@@ -188,7 +192,7 @@ ${imgs?`<library_images>${imgs}</library_images>`:''}<library_effects>${fx}</lib
 let R=null; // ενεργή προβολή
 function makeMats(){
   const m={};
-  ['graphic','frame','alu','door','floor','person'].forEach(k=>{m[k]=new THREE.MeshLambertMaterial({color:colorOf(k),polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});});
+  ['graphic','melamine','frame','alu','door','floor','person'].forEach(k=>{m[k]=new THREE.MeshLambertMaterial({color:colorOf(k),polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});});
   m.line=new LineMaterial({color:D3.colors.edge,linewidth:D3.edgePx,worldUnits:false});
   m.sel=new LineMaterial({color:'#1F4FD1',linewidth:3.5,worldUnits:false,depthTest:false,transparent:true});
   return m;
@@ -198,7 +202,7 @@ function outline(geo,mat,angle=20){
   return new LineSegments2(g,mat);
 }
 function buildModel(list,mats){
-  const g=new THREE.Group(), order=['graphic','frame','alu','door','floor'];
+  const g=new THREE.Group(), order=['graphic','melamine','frame','alu','door','floor'];
   list.forEach(p=>{
     const tris=prismTris(p).sort((a,b)=>order.indexOf(a.mat)-order.indexOf(b.mat));
     const pos=tris.flatMap(o=>o.t.flat()).map(v=>v/100); // cm → m
@@ -259,8 +263,8 @@ function pick(clientX,clientY){
     if(h.object.userData.surface) return h.object.userData.surface;
     const p=h.object.userData.part; if(!p||!p.el) continue;
     if(p.el==='floor') return h.face.normal.y>.9?'floor':null;
-    if(p.prod){const n=h.face.normal; if(n.y>.9) return `${p.el}:top`; if(Math.abs(n.y)>.1) return null;
-      for(let i=0;i<4;i++){const f=prodFace(p,i); if(n.x*f.n[0]+n.z*f.n[1]>.9) return `${p.el}:s${i}`;} return null;}
+    if(p.prod){const n=h.face.normal; let k=null; if(n.y>.9) k=`${p.el}:top`; else if(Math.abs(n.y)<.1) for(let i=0;i<4;i++){const f=prodFace(p,i); if(n.x*f.n[0]+n.z*f.n[1]>.9) k=`${p.el}:s${i}`;}
+      if(k&&!surface(k)){toast('Αυτή η όψη δεν τυπώνεται'+(k.endsWith(':top')?' (πάνω όψη: μελαμίνη ή χωρίς εκτύπωση).':'.')); return null;} return k;}
     if(p.piece){const n=h.face.normal, d=n.x*p.ax[0]+n.z*p.ax[1]; if(Math.abs(d)<.9) return null;
       const f=pieceFaces(p)[d>0?1:0]; return `${p.el}:${p.piece}:${f.inward?'in':'out'}`;}
     const n=h.face.normal, d=n.x*p.inn[0]+n.z*p.inn[1];

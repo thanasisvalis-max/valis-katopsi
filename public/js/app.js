@@ -219,6 +219,7 @@ function drawProd(P,el){
   const p=PRODUCTS[el.type], tf=tfOf(el), b=bbox(el), vert=(el.rot||0)%180!==0;
   prodRects(el).forEach(([x,y,w,h])=>{const q=[[x,y],[x+w,y+h]].map(tf);
     P.rect(Math.min(q[0][0],q[1][0]),Math.min(q[0][1],q[1][1]),Math.abs(q[1][0]-q[0][0]),Math.abs(q[1][1]-q[0][1]),p.fill,C.S,.25);});
+  if(el.type==='desk'){const f=[[1.5,p.d-1.2],[p.w-1.5,p.d-1.2]].map(tf); P.line(f[0][0],f[0][1],f[1][0],f[1][1],'#17202A',1.6);} // μπροστινή όψη
   const cx=b.x+b.w/2, cy=b.y+b.h/2, L=vert?b.h:b.w;
   if(el.type==='banner'){const t=`${p.code} ${p.dims}`, fs=Math.min(p.bar*.62,L*.86/(t.length*.74)); P.text(cx,cy,t,fs,'#17202A',vert); return;}
   const S2=vert?b.w:b.h, fs=Math.min(S2*.2,L*.82/(Math.max(p.code.length,p.dims.length)*.76)), off=fs*.62;
@@ -327,7 +328,9 @@ function bomRows(){
     if(isProf(e)){code=PROF[e.type].code; len=e.len;
       desc=e.type==='p67'?(lit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'; key=code+desc+len;}
     else if(e.type==='door'){code='DOOR';desc=`Πόρτα ${DOOR.w}×${S.H} · εκτυπώσεις: φύλλο ${String(DOOR.leafW).replace('.',',')}×${String(DOOR.leafH).replace('.',',')}, πλαϊνό ${DOOR.side}×${DOOR.sideH}, κορωνίδα ${DOOR.w}×${Math.max(0,S.H-DOOR.sideH)}`;key='door';}
-    else if(isProd(e)){const p=PRODUCTS[e.type]; code=p.code; desc=e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`; key=e.type;}
+    else if(isProd(e)){const p=PRODUCTS[e.type]; code=p.code;
+      const pt=e.type==='banner'?'εκτύπωση 2 όψεις':e.type==='desk'?'εκτύπωση μπροστά + 2 πλαϊνά':e.top==='melamine'?'4 πλευρές εκτύπωση + μελαμίνη πάνω':'5 πλευρές εκτύπωση';
+      desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; key=e.type+(e.top==='melamine'?'-m':'');}
     else {code='CONN';desc='Σύνδεσμος προφίλ';key='conn';}
     g[key]=g[key]||{code,desc,len,qty:0}; g[key].qty++;});
   return Object.values(g).sort((a,b)=>a.code.localeCompare(b.code)||a.desc.localeCompare(b.desc)||(b.len||0)-(a.len||0));
@@ -372,7 +375,7 @@ function renderInspector(){
   } else {
     const door=el.type==='door';
     const pr=PRODUCTS[el.type];
-    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>`:''}
+    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>`:''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
     ${xy}
     ${door?`<div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
@@ -495,6 +498,7 @@ function act(a,v){
   if(a==='dim') el.dim=v;
   if(a==='rot') rotateEl(el);
   if(a==='flip'&&el.type==='door') el.flip=!el.flip;
+  if(a==='top'&&PRODUCTS[el.type]&&PRODUCTS[el.type].topOption) el.top=v;
   if(a==='inv'&&el.type==='door'){
     // η γραμμή του τοίχου (μπάρα 100 cm της πόρτας) μένει στη θέση της, αλλάζει μόνο η μεριά του φύλλου
     const at=e=>{const m=symMatrix(e).m; return [m[0]*50.11+m[2]*2.67+m[4], m[1]*50.11+m[3]*2.67+m[5]];};
