@@ -550,17 +550,23 @@ let DL=null;
 (async()=>{try{if(window.claude&&window.claude.use) DL=await window.claude.use('downloads');}catch(e){DL=null}})();
 const DL_OK=new Set(['png','svg','pdf','csv','json','zip','txt']);
 const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
-function zipOne(name,bytes){ // ZIP χωρίς συμπίεση (store), ένα αρχείο
-  let crc=0xFFFFFFFF; for(let i=0;i<bytes.length;i++) crc=CRC[(crc^bytes[i])&255]^(crc>>>8); crc=(crc^0xFFFFFFFF)>>>0;
-  const nm=new TextEncoder().encode(name), L=bytes.length, d=new Date();
-  const dt=((d.getFullYear()-1980)<<9|(d.getMonth()+1)<<5|d.getDate()), tm=(d.getHours()<<11|d.getMinutes()<<5|(d.getSeconds()>>1));
-  const loc=new DataView(new ArrayBuffer(30)), cen=new DataView(new ArrayBuffer(46)), end=new DataView(new ArrayBuffer(22));
-  [[0,0x04034b50,4],[4,20,2],[6,0x0800,2],[8,0,2],[10,tm,2],[12,dt,2],[14,crc,4],[18,L,4],[22,L,4],[26,nm.length,2],[28,0,2]].forEach(([o,v,z])=>z===4?loc.setUint32(o,v,true):loc.setUint16(o,v,true));
-  [[0,0x02014b50,4],[4,20,2],[6,20,2],[8,0x0800,2],[10,0,2],[12,tm,2],[14,dt,2],[16,crc,4],[20,L,4],[24,L,4],[28,nm.length,2],[30,0,2],[32,0,2],[34,0,2],[36,0,2],[38,0,4],[42,0,4]].forEach(([o,v,z])=>z===4?cen.setUint32(o,v,true):cen.setUint16(o,v,true));
-  const cenOff=30+nm.length+L;
-  [[0,0x06054b50,4],[4,0,2],[6,0,2],[8,1,2],[10,1,2],[12,46+nm.length,4],[16,cenOff,4],[20,0,2]].forEach(([o,v,z])=>z===4?end.setUint32(o,v,true):end.setUint16(o,v,true));
-  return new Blob([loc,nm,bytes,cen,nm,end],{type:'application/zip'});
+function zipFiles(files){ // ZIP χωρίς συμπίεση (store). files = [{name, bytes:Uint8Array}]
+  const d=new Date(), dt=((d.getFullYear()-1980)<<9|(d.getMonth()+1)<<5|d.getDate()), tm=(d.getHours()<<11|d.getMinutes()<<5|(d.getSeconds()>>1));
+  const W=(dv,list)=>list.forEach(([o,v,z])=>z===4?dv.setUint32(o,v,true):dv.setUint16(o,v,true));
+  const parts=[], central=[]; let off=0;
+  files.forEach(f=>{
+    let crc=0xFFFFFFFF; for(let i=0;i<f.bytes.length;i++) crc=CRC[(crc^f.bytes[i])&255]^(crc>>>8); crc=(crc^0xFFFFFFFF)>>>0;
+    const nm=new TextEncoder().encode(f.name), L=f.bytes.length;
+    const loc=new DataView(new ArrayBuffer(30)), cen=new DataView(new ArrayBuffer(46));
+    W(loc,[[0,0x04034b50,4],[4,20,2],[6,0x0800,2],[8,0,2],[10,tm,2],[12,dt,2],[14,crc,4],[18,L,4],[22,L,4],[26,nm.length,2],[28,0,2]]);
+    W(cen,[[0,0x02014b50,4],[4,20,2],[6,20,2],[8,0x0800,2],[10,0,2],[12,tm,2],[14,dt,2],[16,crc,4],[20,L,4],[24,L,4],[28,nm.length,2],[30,0,2],[32,0,2],[34,0,2],[36,0,2],[38,0,4],[42,off,4]]);
+    parts.push(loc,nm,f.bytes); central.push(cen,nm); off+=30+nm.length+L;
+  });
+  const cenSize=central.reduce((s,x)=>s+(x.byteLength??x.length),0), end=new DataView(new ArrayBuffer(22));
+  W(end,[[0,0x06054b50,4],[4,0,2],[6,0,2],[8,files.length,2],[10,files.length,2],[12,cenSize,4],[16,off,4],[20,0,2]]);
+  return new Blob([...parts,...central,end],{type:'application/zip'});
 }
+const zipOne=(name,bytes)=>zipFiles([{name,bytes}]);
 async function toBytes(data,ext){
   if(typeof data==='string') return ext==='pdf'?Uint8Array.from(data,c=>c.charCodeAt(0)&255):new TextEncoder().encode(data);
   if(data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
@@ -584,11 +590,16 @@ async function offer(filename,data){
 $('xpdf').onclick=()=>offer(`${fname()}_KATOPSI_1-${S.scale||10}.pdf`,exportPDF());
 $('xsvg').onclick=()=>offer(`${fname()}_KATOPSI_1-${S.scale||10}.svg`,exportSVG());
 $('xcsv').onclick=()=>offer(`${fname()}_LISTA_YLIKON.csv`,exportCSV());
-$('xjson').onclick=()=>offer(`${fname()}.valis.json`,JSON.stringify(S,null,1));
+// το έργο .valis.json περιέχει και τις εικόνες γραφικών (για μεταφορά σε άλλον υπολογιστή)
+$('xjson').onclick=async()=>{
+  const images={}; for(const g of Object.values(S.gfx||{})){const u=await GFX.get(g.img); if(u) images[g.img]=u;}
+  offer(`${fname()}.valis.json`,JSON.stringify({...S,images},null,1));
+};
 $('ojson').onclick=()=>$('fjson').click();
 $('fjson').addEventListener('change',e=>{
   const f=e.target.files[0]; if(!f) return; const r=new FileReader();
   r.onload=()=>{try{const d=JSON.parse(r.result); if(!Array.isArray(d.els)||!d.W||!d.D) throw 0;
+      const imgs=d.images||{}; delete d.images; for(const [id,u] of Object.entries(imgs)) GFX.put(id,u);
       S={...blank(),...d}; sel=null; commit(); renderAll(); toast('Άνοιξε το έργο '+(S.name||f.name)+'.');}
     catch(err){toast('Το αρχείο δεν είναι έργο του σχεδιαστή κάτοψης.');}
     e.target.value='';};
