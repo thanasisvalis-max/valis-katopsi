@@ -25,7 +25,7 @@ function sample(){
 }
 let S=null; try{S=JSON.parse(localStorage.getItem(LS)||localStorage.getItem('valis-booth-v1'))}catch(e){S=null}
 S=(S&&Array.isArray(S.els))?{...blank(),...S}:sample();
-let sel=null, tool='select', hist=[], last=JSON.stringify(S), drag=null, drawing=null, pan=null, guides=null, ISS=[];
+let resize=null, sel=null, tool='select', hist=[], last=JSON.stringify(S), drag=null, drawing=null, pan=null, guides=null, ISS=[];
 function persist(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
 function commit(){const now=JSON.stringify(S); if(now!==last){hist.push(last); if(hist.length>80)hist.shift(); last=now;} persist();}
 function undo(){if(!hist.length)return; S=JSON.parse(hist.pop()); last=JSON.stringify(S); if(!S.els.some(e=>e.id===sel))sel=null; persist(); renderAll();}
@@ -252,7 +252,15 @@ function drawPlan(P,o){
   if(guides){const g='stroke="#E0457B" stroke-width="1.2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke" pointer-events="none"';
     if(guides.x!=null) P.raw(`<line x1="${n(guides.x)}" y1="-40" x2="${n(guides.x)}" y2="${S.D+40}" ${g}/>`);
     if(guides.y!=null) P.raw(`<line x1="-40" y1="${n(guides.y)}" x2="${S.W+40}" y2="${n(guides.y)}" ${g}/>`);}
-  const el=byId(sel); if(el){const b=bbox(el), r=6*K, hx=b.x+b.w+r*1.4, hy=b.y-r*1.4;
+  const el=byId(sel);
+  if(el&&isProf(el)){ // λαβές μήκους στις δύο άκρες: τράβηγμα = μίκρυνση / μεγάλωμα του πλαισίου
+    const t=PROF[el.type].t, H=el.dir==='h', hw=4.2*K, hl=9*K, cur=H?'ew-resize':'ns-resize';
+    [['a',H?el.x:el.x+t/2,H?el.y+t/2:el.y],['b',H?el.x+el.len:el.x+t/2,H?el.y+t/2:el.y+el.len]].forEach(([k,cx,cy])=>{
+      const w=H?hw:hl, h=H?hl:hw;
+      P.raw(`<g data-handle="len-${k}" style="cursor:${cur}"><title>Τράβηξε για αλλαγή μήκους</title><rect x="${n(cx-w/2-4*K)}" y="${n(cy-h/2-4*K)}" width="${n(w+8*K)}" height="${n(h+8*K)}" fill="transparent"/><rect x="${n(cx-w/2)}" y="${n(cy-h/2)}" width="${n(w)}" height="${n(h)}" rx="${n(1.5*K)}" fill="#FFFFFF" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/></g>`);
+    });
+  }
+  if(el){const b=bbox(el), r=6*K, hx=b.x+b.w+r*1.4, hy=b.y-r*1.4;
     P.raw(`<rect x="${n(b.x-4)}" y="${n(b.y-4)}" width="${n(b.w+8)}" height="${n(b.h+8)}" fill="none" stroke="${C.acc}" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" pointer-events="none"/>`);
     P.raw(`<g data-handle="rot" style="cursor:pointer"><title>Περιστροφή 90°</title><circle cx="${n(hx)}" cy="${n(hy)}" r="${n(r)}" fill="#FFFFFF" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="M${n(hx+r*.5)} ${n(hy-r*.05)} A ${n(r*.5)} ${n(r*.5)} 0 1 1 ${n(hx+r*.15)} ${n(hy-r*.47)}" fill="none" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="M${n(hx+r*.1)} ${n(hy-r*.75)} L${n(hx+r*.42)} ${n(hy-r*.45)} L${n(hx+r*.02)} ${n(hy-r*.2)}" fill="none" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/></g>`);}
 }
@@ -275,7 +283,7 @@ function renderPlan(ghost){
   K=1; DC='#2E73A8';
   svg.classList.toggle('draw',tool!=='select');
 }
-const HINTS={select:'Πάτα ένα στοιχείο για να το επιλέξεις, σύρε για μετακίνηση. Το κυκλάκι πάνω δεξιά το περιστρέφει.',
+const HINTS={select:'Πάτα ένα στοιχείο για να το επιλέξεις, σύρε για μετακίνηση. Τράβα τις λαβές στις άκρες ενός πλαισίου για να αλλάξεις μήκος. Το κυκλάκι πάνω δεξιά το περιστρέφει.',
   p67:'Σύρε για να σχεδιάσεις τοίχο. Πλαίσια έως 500 cm είναι εντάξει. Για μονοκόμματο 600 cm θα σου προταθεί χωρισμός σε 2 × 300.',
   p68:'Σύρε για να σχεδιάσεις τοίχο. Οι άκρες κολλάνε με μαγνήτη στα διπλανά πλαίσια.',
   door:'Κλικ στο σημείο της πόρτας. Γύρισέ τη με R ή άλλαξε πλευρά με F.',
@@ -392,6 +400,8 @@ svg.addEventListener('pointerdown',e=>{
   if(e.button>0) return;
   const p=toCm(e);
   if(e.target.closest('[data-handle="rot"]')){act('rot');return;}
+  const lh=e.target.closest('[data-handle^="len-"]');
+  if(lh&&byId(sel)){const el=byId(sel); resize={end:lh.dataset.handle.slice(4),start:el.dir==='h'?el.x:el.y,stop:(el.dir==='h'?el.x:el.y)+el.len,moved:false}; svg.setPointerCapture(e.pointerId); return;}
   if(tool==='select'){
     const g=e.target.closest('[data-id]');
     if(g){sel=g.dataset.id; const el=byId(sel), b=bbox(el); drag={sx:p.x,sy:p.y,ox:el.x,oy:el.y,bw:b.w,bh:b.h,moved:false}; svg.setPointerCapture(e.pointerId);}
@@ -416,6 +426,15 @@ function storeFromDrag(x0,y0,p,free){
 svg.addEventListener('pointermove',e=>{
   if(pan){const ctm=svg.getScreenCTM(); Z.cx=pan.cx-(e.clientX-pan.x)/ctm.a; Z.cy=pan.cy-(e.clientY-pan.y)/ctm.d; if(Z.z===1)Z.z=1.0001; svg.classList.add('pan'); renderPlan(); return;}
   const p=toCm(e); $('pos').textContent=`${fmt(snapV(p.x))}, ${fmt(snapV(p.y))} cm`;
+  if(resize){const el=byId(sel); if(!el) return;
+    const H=el.dir==='h', t=PROF[el.type].t, ax=H?'x':'y', raw=p[ax], MIN=10;
+    const lo=H?el.y:el.x, mg=(e.altKey||S.magnet===false)?null:bestSnap([raw],axisCands(ax,lo,lo+t,el.id));
+    let len;
+    if(resize.end==='b'){const pos=mg?mg.g:resize.start+snapV(raw-resize.start); len=Math.max(MIN,n(pos-resize.start));}
+    else {const pos=mg?mg.g:resize.stop-snapV(resize.stop-raw); len=Math.max(MIN,n(resize.stop-pos)); el[ax]=n(resize.stop-len);}
+    el.len=len; resize.moved=true; guides=mg?(H?{x:mg.g,y:null}:{x:null,y:mg.g}):null;
+    $('pos').textContent=`μήκος ${fmt(len)} cm`; renderPlan();
+    const il=$('i-len'); if(il) il.value=n(len); return;}
   if(drag){const el=byId(sel); if(!el)return;
     const s=snapBox({x:drag.ox+p.x-drag.sx,y:drag.oy+p.y-drag.sy,w:drag.bw,h:drag.bh},el.id,e.altKey);
     el.x=s.x; el.y=s.y; guides={x:s.gx,y:s.gy}; drag.moved=true; renderPlan();
@@ -428,6 +447,7 @@ svg.addEventListener('pointermove',e=>{
 });
 function endPointer(e){
   if(pan){pan=null; svg.classList.remove('pan');}
+  if(resize){const m=resize.moved, el=byId(sel); resize=null; guides=null; if(m&&el){enforce(el); commit(); renderAll();} else renderPlan(); return;}
   if(drag){const m=drag.moved, el=byId(sel); drag=null; guides=null; if(m){if(el)enforce(el); commit(); renderAll();} else renderPlan();}
   if(drawing){const p=toCm(e);
     const el=drawing.type==='store'?storeFromDrag(drawing.x0,drawing.y0,p,e.altKey):profFromDrag(drawing.type,drawing.x0,drawing.y0,p.x,p.y,e.altKey);
@@ -436,7 +456,7 @@ function endPointer(e){
     commit(); renderAll();}
 }
 svg.addEventListener('pointerup',endPointer);
-svg.addEventListener('pointercancel',()=>{drag=null;drawing=null;pan=null;guides=null;renderPlan();});
+svg.addEventListener('pointercancel',()=>{drag=null;drawing=null;pan=null;resize=null;guides=null;renderPlan();});
 function zoomAt(f,px,py){
   const z=Math.min(12,Math.max(1,Z.z*f));
   if(px!==undefined){const k=1-Z.z/z; Z.cx+=(px-Z.cx)*k; Z.cy+=(py-Z.cy)*k;}
