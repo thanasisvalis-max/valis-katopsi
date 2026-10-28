@@ -45,7 +45,9 @@ const mul=(A,B)=>[A[0]*B[0]+A[2]*B[1],A[1]*B[0]+A[3]*B[1],A[0]*B[2]+A[2]*B[3],A[
 const ROT={0:[1,0,0,1,0,0],90:[0,1,-1,0,0,0],180:[-1,0,0,-1,0,0],270:[0,-1,1,0,0,0]};
 function symMatrix(el){
   const [w,h]=SYMBOX[el.type];
+  // flip = καθρέφτης αριστερά-δεξιά (πλευρά μεντεσέ), inv = καθρέφτης ως προς τη γραμμή του τοίχου (το φύλλο ανοίγει προς την άλλη μεριά)
   let m=el.flip?[-1,0,0,1,w,0]:[1,0,0,1,0,0];
+  if(el.inv) m=mul([1,0,0,-1,0,h],m);
   m=mul(ROT[el.rot||0],m);
   const pts=[[0,0],[w,0],[0,h],[w,h]].map(([x,y])=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]]);
   const mx=Math.min(...pts.map(p=>p[0])), my=Math.min(...pts.map(p=>p[1]));
@@ -341,7 +343,7 @@ function renderInspector(){
     const door=el.type==='door';
     h=`<div class="selhead"><b>${door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${door?'DOOR':'CONN'}</span></div>
     ${xy}
-    ${door?`<div class="seg"><button data-act="flip">Αλλαγή πλευράς</button></div><p class="note">Σταθερή διάσταση. Γύρισέ την ώστε να ανοίγει προς το εσωτερικό.</p>`:''}
+    ${door?`<div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
   }
   box.innerHTML=`<div class="lbl">Επιλεγμένο στοιχείο</div>`+h;
@@ -450,6 +452,11 @@ function act(a,v){
   if(a==='dim') el.dim=v;
   if(a==='rot') rotateEl(el);
   if(a==='flip'&&el.type==='door') el.flip=!el.flip;
+  if(a==='inv'&&el.type==='door'){
+    // η γραμμή του τοίχου (μπάρα 100 cm της πόρτας) μένει στη θέση της, αλλάζει μόνο η μεριά του φύλλου
+    const at=e=>{const m=symMatrix(e).m; return [m[0]*50.11+m[2]*2.67+m[4], m[1]*50.11+m[3]*2.67+m[5]];};
+    const a0=at(el); el.inv=!el.inv; const a1=at(el); el.x=n(el.x+a0[0]-a1[0]); el.y=n(el.y+a0[1]-a1[1]);
+  }
   if(a==='del'){S.els=S.els.filter(e=>e!==el); sel=null;}
   if(a==='dup'){const c={...el,id:newId(),x:el.x+20,y:el.y+20}; S.els.push(c); sel=c.id;}
   if(a==='rot') enforce(el);
@@ -509,6 +516,7 @@ document.addEventListener('keydown',e=>{
   if(k==='Delete'||k==='Backspace'){e.preventDefault();act('del');return;}
   if(k==='r'||k==='R'){act('rot');return;}
   if(k==='f'||k==='F'){act('flip');return;}
+  if(k==='i'||k==='I'){act('inv');return;}
   const st=S.snap*(e.shiftKey?10:1), mv={ArrowLeft:[-st,0],ArrowRight:[st,0],ArrowUp:[0,-st],ArrowDown:[0,st]}[k];
   if(mv){e.preventDefault();el.x=n(el.x+mv[0]);el.y=n(el.y+mv[1]);commit();renderAll();}
 });
