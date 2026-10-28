@@ -27,6 +27,10 @@ const HEIGHTS=[250,300,350];
 
 // 3D μοντέλο (cm). Το ύψος των πλαισίων είναι το ύψος περιπτέρου (S.H).
 // doorLeafH = ύψος φύλλου πόρτας. Πάνω από αυτό μπαίνει πρέκι μέχρι το ύψος περιπτέρου.
+// personH   = ύψος ανθρώπου κλίμακας (δεν μπαίνει στις εξαγωγές).
+// graphic   = default χρώμα γραφικού. Ο χρήστης το αλλάζει στο 3D (αποθηκεύεται στο S.gfx3d).
 // floorH    = πάχος δαπέδου/πλατφόρμας στο 3D.
-const D3={doorLeafH:205, floorH:2,
-  colors:{frameLed:'#FBFAF6', frame:'#ECEBE7', alu:'#A6A4A1', door:'#E4E2DD', floor:'#B7AFA3', ground:'#F3F2EF', edge:'#3A3937'}};
+const D3={doorLeafH:205, floorH:2, personH:175,
+  // Στυλ SketchUp: έγχρωμη η εσωτερική όψη (γραφικό), λευκά τα πλαϊνά/κορυφή του προφίλ, μαύρα περιγράμματα
+  colors:{graphic:'#F2C75C', frame:'#F7F7F5', alu:'#A6A4A1', door:'#E9E8E4', floor:'#EDEDEB', bg:'#CDCDC9', edge:'#151515', person:'#5B6B80'},
+  edgePx:1.6};

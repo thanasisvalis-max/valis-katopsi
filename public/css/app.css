@@ -122,3 +122,6 @@ select{max-width:100%;text-overflow:ellipsis}
 .v3d-canvas canvas{display:block}
 .v3d-hint{margin:0;font-size:12px;color:var(--mute)}
 body.v3d-open{overflow:hidden}
+
+.v3d-opts{align-items:center;gap:12px}
+.v3d-opts input[type=color]{width:34px;height:28px;padding:0 2px;border:1px solid var(--line);border-radius:4px;background:var(--panel);cursor:pointer}
