@@ -42,10 +42,20 @@ public/                    ΜΟΝΟ αυτός ο φάκελος δημοσιε�
   fonts/                   Commissioner + JetBrains Mono (OFL)
 docs/reference/            τα πρωτότυπα PDF από CorelDRAW (πηγή αλήθειας για τη γεωμετρία). ΔΕΝ δημοσιεύεται
 tools/extract_symbols.py   ξαναβγάζει το public/js/symbols.js από τα PDF
+tools/build_artifact.py    φτιάχνει τη σελίδα της έκδοσης Claude.ai από το public/index.html
 wrangler.jsonc             ρύθμιση Cloudflare: assets.directory = ./public
 ```
 
 **Deploy:** Cloudflare Workers συνδεδεμένο με το GitHub repo. Κάθε `git push` στο `main` ανεβαίνει live (`npx wrangler deploy`). Ό,τι μπαίνει έξω από το `public/` δεν δημοσιεύεται ποτέ.
+
+**Δύο εκδόσεις, ένας κώδικας:**
+1. **Αυτόνομη** (Cloudflare) από το `public/`.
+2. **Claude.ai artifact** «Σχεδιαστής Κάτοψης Valis» (https://claude.ai/artifact/WvQ6Tmou1hNJQXdbJ4GN2X, private στον Θανάση). Δημοσίευση:
+   - `python3 tools/build_artifact.py <page.html>` → η σελίδα
+   - publish με όλα τα αρχεία του `public/` ως `files` (root = `public`) και δυνατότητα `downloads`
+   - **Μετά από κάθε αλλαγή ενημερώνονται και οι δύο.**
+
+**Λήψεις αρχείων (`offer()` στο app.js):** στο αυτόνομο site κανονικό download. Μέσα στο Claude.ai περνούν από τη δυνατότητα `downloads`, που δέχεται μόνο png/svg/pdf/csv/json/zip/txt. Γι' αυτό τα `.dae`/`.glb` μπαίνουν αυτόματα σε `.zip` (`zipOne`, store χωρίς συμπίεση).
 
 Βασικές ιδέες του `app.js`:
 - **Μία ρουτίνα σχεδίασης, δύο έξοδοι:** το `drawPlan(P)` καλείται με `svgPainter` (οθόνη/SVG) ή `pdfPainter` (PDF). Κάθε νέο στοιχείο σχεδιάζεται μία φορά και βγαίνει και στα δύο.
@@ -133,6 +143,7 @@ wrangler.jsonc             ρύθμιση Cloudflare: assets.directory = ./publi
 | 2026-10-27 | Αυτόνομη έκδοση: GitHub + Cloudflare, μετά Supabase, μετά AI βοηθός (Β → Γ) |
 | 2026-10-27 | Hosting σε Cloudflare Workers (static assets). Δημόσιος μόνο ο φάκελος `public/` |
 | 2026-10-27 | Κουμπί 3D: προβολή Three.js + εξαγωγή SketchUp (.dae), GLB, PNG από την ίδια κάτοψη |
+| 2026-10-28 | Η ίδια έκδοση (με 3D) και στον Σχεδιαστή μέσα στο Claude.ai. Λήψεις .dae/.glb εκεί ως .zip |
 | 2026-10-28 | 3D σε στυλ SketchUp όπως τα σχέδια του Θανάση: έγχρωμη εσωτερική όψη (γραφικό), λευκά προφίλ, μαύρα περιγράμματα, άνθρωπος κλίμακας. Υλικό GRAFIKO στο .dae |
 
 ## Πώς δουλεύουμε

@@ -541,9 +541,42 @@ const GR2L={α:'a',ά:'a',β:'v',γ:'g',δ:'d',ε:'e',έ:'e',ζ:'z',η:'i',ή:'i
 const fname=()=>[...(S.name||'Katopsi').toLowerCase()].map(c=>GR2L[c]??c).join('').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').toUpperCase().slice(0,80)||'KATOPSI';
 function toast(t){$('toast').textContent=t;}
-const MIME={pdf:'application/pdf',svg:'image/svg+xml',csv:'text/csv;charset=utf-8',json:'application/json',dae:'model/vnd.collada+xml',glb:'model/gltf-binary',png:'image/png'};
-function offer(filename,data){
-  const ext=filename.split('.').pop(), blob=new Blob([typeof data==='string'&&ext==='pdf'?Uint8Array.from(data,c=>c.charCodeAt(0)&255):data],{type:MIME[ext]||'application/octet-stream'});
+const MIME={pdf:'application/pdf',svg:'image/svg+xml',csv:'text/csv;charset=utf-8',json:'application/json',dae:'model/vnd.collada+xml',glb:'model/gltf-binary',png:'image/png',zip:'application/zip'};
+// Λήψη αρχείων σε δύο περιβάλλοντα:
+//  - αυτόνομο site: κανονικό download του browser
+//  - μέσα στο Claude.ai (artifact): μέσω της δυνατότητας «downloads», που δέχεται μόνο ορισμένους τύπους.
+//    Τύποι εκτός λίστας (.dae, .glb) μπαίνουν αυτόματα μέσα σε .zip.
+let DL=null;
+(async()=>{try{if(window.claude&&window.claude.use) DL=await window.claude.use('downloads');}catch(e){DL=null}})();
+const DL_OK=new Set(['png','svg','pdf','csv','json','zip','txt']);
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function zipOne(name,bytes){ // ZIP χωρίς συμπίεση (store), ένα αρχείο
+  let crc=0xFFFFFFFF; for(let i=0;i<bytes.length;i++) crc=CRC[(crc^bytes[i])&255]^(crc>>>8); crc=(crc^0xFFFFFFFF)>>>0;
+  const nm=new TextEncoder().encode(name), L=bytes.length, d=new Date();
+  const dt=((d.getFullYear()-1980)<<9|(d.getMonth()+1)<<5|d.getDate()), tm=(d.getHours()<<11|d.getMinutes()<<5|(d.getSeconds()>>1));
+  const loc=new DataView(new ArrayBuffer(30)), cen=new DataView(new ArrayBuffer(46)), end=new DataView(new ArrayBuffer(22));
+  [[0,0x04034b50,4],[4,20,2],[6,0x0800,2],[8,0,2],[10,tm,2],[12,dt,2],[14,crc,4],[18,L,4],[22,L,4],[26,nm.length,2],[28,0,2]].forEach(([o,v,z])=>z===4?loc.setUint32(o,v,true):loc.setUint16(o,v,true));
+  [[0,0x02014b50,4],[4,20,2],[6,20,2],[8,0x0800,2],[10,0,2],[12,tm,2],[14,dt,2],[16,crc,4],[20,L,4],[24,L,4],[28,nm.length,2],[30,0,2],[32,0,2],[34,0,2],[36,0,2],[38,0,4],[42,0,4]].forEach(([o,v,z])=>z===4?cen.setUint32(o,v,true):cen.setUint16(o,v,true));
+  const cenOff=30+nm.length+L;
+  [[0,0x06054b50,4],[4,0,2],[6,0,2],[8,1,2],[10,1,2],[12,46+nm.length,4],[16,cenOff,4],[20,0,2]].forEach(([o,v,z])=>z===4?end.setUint32(o,v,true):end.setUint16(o,v,true));
+  return new Blob([loc,nm,bytes,cen,nm,end],{type:'application/zip'});
+}
+async function toBytes(data,ext){
+  if(typeof data==='string') return ext==='pdf'?Uint8Array.from(data,c=>c.charCodeAt(0)&255):new TextEncoder().encode(data);
+  if(data instanceof Blob) return new Uint8Array(await data.arrayBuffer());
+  return new Uint8Array(data instanceof ArrayBuffer?data:data.buffer);
+}
+async function offer(filename,data){
+  let ext=filename.split('.').pop().toLowerCase(), bytes=await toBytes(data,ext);
+  if(DL){
+    let blob;
+    if(DL_OK.has(ext)) blob=new Blob([bytes],{type:MIME[ext]});
+    else {blob=zipOne(filename,bytes); filename=filename.replace(/\.[^.]+$/,'')+'.zip';}
+    try{await DL.save({filename,data:blob}); toast('Αποθηκεύτηκε: '+filename);}
+    catch(err){toast(err&&err.code==='declined'?'Η αποθήκευση ακυρώθηκε.':'Δεν έγινε αποθήκευση. Δοκίμασε ξανά σε λίγο.');}
+    return;
+  }
+  const blob=new Blob([bytes],{type:MIME[ext]||'application/octet-stream'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},4000);
   toast('Αποθηκεύτηκε: '+filename);
