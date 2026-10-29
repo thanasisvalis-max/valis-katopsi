@@ -262,6 +262,35 @@ function drawProd(P,el){
   if(el.type==='banner'){const t=`${p.code} ${p.dims}`, fs=Math.min(p.bar*.62,L*.86/(t.length*.74)); P.text(cx,cy,t,fs,'#17202A',ta); return;}
   const fs=Math.min(p.d*.2,L*.82/(Math.max(p.code.length,p.dims.length)*.76)), off=fs*.62, m=ROTM(ta), vx=-m[1]*off, vy=m[0]*off;
   P.text(cx-vx,cy-vy,p.code,fs,'#17202A',ta); P.text(cx+vx,cy+vy,p.dims,fs,'#17202A',ta);
+  const si=canStack(el)&&stackInfo()[el.id];
+  if(si&&si.level>0&&si.top){const q=tf([p.w-Math.min(9,p.w*.18),Math.min(7,p.d*.16)]); P.text(q[0],q[1],`x${si.level+1}`,Math.min(7,p.d*.17),'#C8382C',ta);}
+}
+/* Στοίβαξη προϊόντων LED (cube/pylon/desk): ένα προϊόν που πατάει πάνω σε άλλο (επικάλυψη ≥ 40%)
+   ανεβαίνει στο 3D πάνω του. Η σειρά στο S.els καθορίζει ποιο είναι από πάνω (το πιο πρόσφατο). */
+const STACK_MIN=.4, canStack=e=>isProd(e)&&e.type!=='banner';
+function overlapRatio(a,b){const A=bbox(a),B=bbox(b), w=Math.min(A.x+A.w,B.x+B.w)-Math.max(A.x,B.x), h=Math.min(A.y+A.h,B.y+B.h)-Math.max(A.y,B.y);
+  if(w<=0||h<=0) return 0; return w*h/Math.min(A.w*A.h,B.w*B.h);}
+function stackInfo(){
+  const info={}, done=[];
+  S.els.filter(canStack).forEach(el=>{
+    let base=0, level=0, below=null;
+    done.forEach(o=>{if(overlapRatio(el,o)>=STACK_MIN){const top=info[o.id].base+PRODUCTS[o.type].h; if(top>=base){base=top; level=info[o.id].level+1; below=o;}}});
+    info[el.id]={base,level,below,top:true}; if(below) info[below.id].top=false;
+    // όποιο από κάτω καλύπτεται, δεν είναι κορυφή
+    done.forEach(o=>{if(o!==below&&overlapRatio(el,o)>=STACK_MIN&&info[o.id].base<base) info[o.id].top=false;});
+    done.push(el);
+  });
+  return info;
+}
+// κούμπωμα πάνω σε άλλο προϊόν: ίδιο κέντρο και γωνία, και μεταφορά στο τέλος της λίστας (= από πάνω)
+function stackSnap(el){
+  if(!canStack(el)) return false;
+  let best=null, br=0; S.els.filter(o=>o!==el&&canStack(o)).forEach(o=>{const r=overlapRatio(el,o); if(r>br){br=r;best=o;}});
+  if(!best||br<STACK_MIN) return false;
+  const B=bbox(best), cx=B.x+B.w/2, cy=B.y+B.h/2; el.rot=best.rot||0; const nb=bbox(el); el.x=n(cx-nb.w/2); el.y=n(cy-nb.h/2);
+  S.els=S.els.filter(o=>o!==el); S.els.push(el);
+  const lv=stackInfo()[el.id]; toast(`Μπήκε πάνω σε ${PRODUCTS[best.type].code} · στοίβα ${lv.level+1} τεμαχίων, βάση στα ${fmt(lv.base)} cm.`);
+  return true;
 }
 function drawEl(P,el){ if(isProf(el)) drawProfile(P,el); else if(isProd(el)) drawProd(P,el); else P.sym(el.type,symMatrix(el).m); }
 function drawStore(P,st,preview){
@@ -413,7 +442,7 @@ function renderInspector(){
   } else {
     const door=el.type==='door';
     const pr=PRODUCTS[el.type];
-    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>`:''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
+    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${PRODUCTS[si.below.type].code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
     ${xy}
     ${door?`<div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
@@ -479,7 +508,7 @@ svg.addEventListener('pointerdown',e=>{
   }
   const [w,h]=SYMBOX[tool], ctr=tool==='conn'||PRODUCTS[tool], s=snapPoint(p.x-(ctr?w/2:0),p.y-(ctr?h/2:0),null,e.altKey);
   const el={id:newId(),type:tool,x:s.x,y:s.y,rot:0,flip:false};
-  S.els.push(el); sel=el.id; tool='select'; commit(); renderAll();
+  S.els.push(el); stackSnap(el); sel=el.id; tool='select'; commit(); renderAll();
 });
 function storeFromDrag(x0,y0,p,free){
   const s=snapPoint(p.x,p.y,null,free); guides={x:s.gx,y:s.gy};
@@ -516,7 +545,7 @@ svg.addEventListener('pointermove',e=>{
 function endPointer(e){
   if(pan){pan=null; svg.classList.remove('pan');}
   if(resize){const m=resize.moved, el=byId(sel); resize=null; guides=null; if(m&&el){enforce(el); commit(); renderAll();} else renderPlan(); return;}
-  if(drag){const m=drag.moved, el=byId(sel); drag=null; guides=null; if(m){if(el)enforce(el); commit(); renderAll();} else renderPlan();}
+  if(drag){const m=drag.moved, el=byId(sel); drag=null; guides=null; if(m){if(el){enforce(el); stackSnap(el);} commit(); renderAll();} else renderPlan();}
   if(drawing){const p=toCm(e);
     const el=drawing.type==='store'?storeFromDrag(drawing.x0,drawing.y0,p,e.altKey):profFromDrag(drawing.type,drawing.x0,drawing.y0,p.x,p.y,e.altKey);
     el.id=newId(); drawing=null; guides=null; S.els.push(el); sel=el.id;

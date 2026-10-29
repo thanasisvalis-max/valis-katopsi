@@ -22,7 +22,7 @@ function profFaces(el){
   return {p,in:F[i],out:F[1-i]};
 }
 function parts(){
-  const out=[], H=S.H;
+  const out=[], H=S.H, STK=stackInfo();
   const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
   const all=m=>()=>m;
   out.push({name:'DAPEDO',el:'floor',quad:rect(0,0,S.W,S.D),z0:-D3.floorH,z1:0,face:all('floor')});
@@ -35,11 +35,11 @@ function parts(){
       const b=bbox(el); out.push({name:'CONN',quad:rect(b.x,b.y,b.w,b.h),z0:0,z1:H,face:all('alu')});
     } else if(el.type==='door') out.push(...doorPieces(el));
     else if(isProd(el)){
-      const pr=PRODUCTS[el.type], tf=tfOf(el);
+      const pr=PRODUCTS[el.type], tf=tfOf(el), z0=canStack(el)?(STK[el.id]||{base:0}).base:0;
       prodRects(el).forEach(([x,y,w,d,role])=>{
         const q=[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf);
         if(role==='foot') out.push({name:`${pr.code.replace(/ /g,'_')}_PODI`,quad:q,z0:0,z1:pr.foot.h,face:all('alu')});
-        else out.push({name:`${pr.code.replace(/ /g,'_')}_${pr.dims}`,el:el.id,prod:true,quad:q,z0:0,z1:pr.h,
+        else out.push({name:`${pr.code.replace(/ /g,'_')}_${pr.dims}`,el:el.id,prod:true,quad:q,z0,z1:z0+pr.h,
           face:(tag,n)=>{const pf=printFaces(el);
             if(tag==='top') return pf.includes('top')?'graphic':el.top==='melamine'?'melamine':'frame';
             if(tag!=='side') return 'frame';
@@ -70,7 +70,7 @@ function doorPieces(el){
 }
 // σώμα προϊόντος LED (χωρίς πόδια) και οι 4 κάθετες όψεις του
 const parts1=el=>{const pr=PRODUCTS[el.type], tf=tfOf(el), r=prodRects(el).find(o=>o[4]==='body'); if(!r) return null;
-  const [x,y,w,d]=r; return {quad:[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf),z0:0,z1:pr.h};};
+  const z0=canStack(el)?stackInfo()[el.id].base:0, [x,y,w,d]=r; return {quad:[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf),z0,z1:z0+pr.h};};
 function prodFace(p,i){
   const q=p.quad, e1=q[i], e2=q[(i+1)%4], cx=q.reduce((s,v)=>s+v[0],0)/4, cy=q.reduce((s,v)=>s+v[1],0)/4;
   let n=[e2[1]-e1[1],-(e2[0]-e1[0])]; const L=Math.hypot(...n)||1; n=[n[0]/L,n[1]/L];
