@@ -186,5 +186,5 @@ wrangler.jsonc             ρύθμιση Cloudflare: assets.directory = ./publi
 
 - Αλλαγή κανόνα/τιμής → `js/config.js` + ενότητα «Κανόνες» εδώ + γραμμή στο «Ιστορικό αποφάσεων».
 - Νέο στοιχείο συστήματος → PDF στο `docs/reference/`, εξαγωγή με `tools/extract_symbols.py`, εγγραφή στον πίνακα «Στοιχεία».
-- Πριν από commit: `node --check public/js/*.js` **και** για το ES module `view3d.js`: `node --input-type=module -e "$(sed 's/^import .*//; s/^export {.*//; s/^export //' public/js/view3d.js)"` (το `node --check` δεν πιάνει όλα τα λάθη σε modules), άνοιγμα `public/index.html`, έλεγχος ότι το PDF του παραδείγματος βγαίνει σε 1100×700 mm και ότι το 3D ανοίγει και το `.dae` έχει όρια 1000 × 600 × 250 cm.
+- Πριν από commit: `node --check public/js/*.js` **και** για το ES module `view3d.js`: `cp public/js/view3d.js /tmp/view3d.mjs && node --check /tmp/view3d.mjs` (ως `.mjs`, ώστε να ελεγχθεί σαν ES module), άνοιγμα `public/index.html`, έλεγχος ότι το PDF του παραδείγματος βγαίνει σε 1100×700 mm και ότι το 3D ανοίγει και το `.dae` έχει όρια 1000 × 600 × 250 cm.
 - Οι απαντήσεις και τα μηνύματα του UI είναι στα ελληνικά. Ο χρήστης προτιμά άμεση, δομημένη επικοινωνία.

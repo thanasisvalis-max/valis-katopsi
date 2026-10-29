@@ -15,7 +15,7 @@ jobs:
       - name: Έλεγχος JavaScript
         run: |
           node --check public/js/config.js public/js/app.js public/js/gfxstore.js public/js/symbols.js
-          node --input-type=module -e "$(sed 's/^import .*//; s/^export {.*//; s/^export //' public/js/view3d.js)"
+          cp public/js/view3d.js /tmp/view3d.mjs && node --check /tmp/view3d.mjs
       - name: Ανέβασμα του public/
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:

@@ -255,8 +255,8 @@ boothdesigner/
 
 ```bash
 node --check public/js/config.js public/js/app.js public/js/gfxstore.js public/js/symbols.js
-# το view3d.js είναι ES module, το node --check δεν πιάνει όλα τα λάθη:
-node --input-type=module -e "$(sed 's/^import .*//; s/^export {.*//; s/^export //' public/js/view3d.js)"
+# το view3d.js είναι ES module: ελέγχεται ως .mjs
+cp public/js/view3d.js /tmp/view3d.mjs && node --check /tmp/view3d.mjs
 ```
 Και χειροκίνητα: «Παράδειγμα» → PDF 1100×700 mm → 3D ανοίγει → `.dae` 1000×600×250 cm.
 
