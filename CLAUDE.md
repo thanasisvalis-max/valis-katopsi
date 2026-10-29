@@ -41,6 +41,8 @@ public/                    ΜΟΝΟ αυτός ο φάκελος δημοσιε�
   js/gfxstore.js           αποθήκευση εικόνων γραφικών σε IndexedDB (GFX.put/get/fromFile)
   js/vendor/three/         Three.js 0.169 (three.module.min.js, OrbitControls, GLTFExporter, lines/ για χοντρά περιγράμματα), μέσω import map στο index.html
   fonts/                   Commissioner + JetBrains Mono (OFL)
+docs/DEPLOY.md             οδηγός εγκατάστασης για τον προγραμματιστή (Cloudflare ή cPanel, κλείδωμα, έλεγχοι)
+docs/deploy/               .htaccess και GitHub Action FTP για τη διαδρομή cPanel
 docs/reference/            τα πρωτότυπα PDF από CorelDRAW (πηγή αλήθειας για τη γεωμετρία). ΔΕΝ δημοσιεύεται
 tools/extract_symbols.py   ξαναβγάζει το public/js/symbols.js από τα PDF
 tools/build_artifact.py    φτιάχνει τη σελίδα της έκδοσης Claude.ai από το public/index.html
@@ -157,6 +159,7 @@ wrangler.jsonc             ρύθμιση Cloudflare: assets.directory = ./publi
 
 | Ημερομηνία | Απόφαση |
 |---|---|
+| 2026-10-29 | Online στο boothdesigner.valiscreations.gr, κλειδωμένο για την ομάδα. Προτεινόμενο: Cloudflare Workers + Access. Εναλλακτικά: cPanel + Directory Privacy + GitHub Action FTP. Οδηγός: `docs/DEPLOY.md` |
 | 2026-10-27 | Κάτοψη = κάναβος 100×100 cm, υπόλοιπα 100×50 / 50×50 |
 | 2026-10-27 | Εξαγωγή 1:10 με σελίδα = περίπτερο + 50 cm περιθώριο, ίδια με Corel |
 | 2026-10-27 | Πόρτα σταθερή, αλλάζει πλευρά, ανοίγει πάντα προς τα μέσα |

@@ -1,0 +1,32 @@
+# Αυτόματο deploy σε cPanel μέσω FTPS (μόνο για τη Διαδρομή Β).
+# Αντιγραφή σε .github/workflows/deploy-cpanel.yml.
+# Χρειάζεται secrets στο repo: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
+# (FTP λογαριασμός με πρόσβαση ΜΟΝΟ στον φάκελο του subdomain).
+name: Deploy σε cPanel
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Έλεγχος JavaScript
+        run: |
+          node --check public/js/config.js public/js/app.js public/js/gfxstore.js public/js/symbols.js
+          node --input-type=module -e "$(sed 's/^import .*//; s/^export {.*//; s/^export //' public/js/view3d.js)"
+      - name: Ανέβασμα του public/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./public/
+          server-dir: ./
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .htaccess
+            .ftp-deploy-sync-state.json

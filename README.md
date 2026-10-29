@@ -2,6 +2,7 @@
 
 Εσωτερικό εργαλείο της VALIS Communication για σχεδίαση κατόψεων εκθεσιακών περιπτέρων με το σύστημα Valis Frames.
 Αρχιτεκτονική, κανόνες και ιστορικό αποφάσεων: **[CLAUDE.md](CLAUDE.md)**.
+**Εγκατάσταση online (για τον προγραμματιστή): [docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ## Τοπικά
 
@@ -12,7 +13,7 @@ python3 -m http.server 8080 -d public
 # άνοιξε http://localhost:8080
 ```
 
-(Λειτουργεί και με διπλό κλικ στο `public/index.html`.)
+(Με διπλό κλικ στο `public/index.html` δουλεύει η κάτοψη, αλλά όχι το 3D: τα ES modules θέλουν server.)
 
 ## Ανέβασμα σε Cloudflare
 

@@ -1,0 +1,41 @@
+# .htaccess για το boothdesigner.valiscreations.gr (cPanel / Apache)
+# Αντιγραφή ως ".htaccess" στο document root του subdomain.
+# Τις γραμμές AuthType/AuthUserFile τις προσθέτει το cPanel → Directory Privacy.
+
+# 1) Πάντα HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# 2) Σωστοί τύποι αρχείων (χωρίς αυτούς σε κάποιους hosts δεν φορτώνει το 3D)
+AddType text/javascript .js .mjs
+AddType font/woff2 .woff2
+AddType application/json .json
+AddDefaultCharset utf-8
+
+# 3) Όχι λίστα αρχείων, όχι κρυφά αρχεία
+Options -Indexes
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+# 4) Βασική ασφάλεια
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "same-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
+# 5) Cache: σελίδα πάντα φρέσκια, υπόλοιπα 1 ώρα, fonts/Three.js 1 μήνα
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "max-age=3600"
+  </FilesMatch>
+  <FilesMatch "\.woff2$">
+    Header set Cache-Control "max-age=2592000"
+  </FilesMatch>
+</IfModule>
