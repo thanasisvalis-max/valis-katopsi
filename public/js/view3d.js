@@ -15,7 +15,12 @@ const fmt=v=>(Math.round(v*10)/10).toString().replace('.',',');
 /* ---------- 1. Μοντέλο: λίστα από πρίσματα (τετράπλευρο κάτοψης × ύψος) ----------
    Συντεταγμένες κάτοψης σε cm: x δεξιά, y προς τα κάτω (προς τον διάδρομο). Ύψος h προς τα πάνω.
    Κάθε πρίσμα έχει face(tag, n) → υλικό ανά έδρα. Η εσωτερική όψη ενός πλαισίου είναι «graphic». */
-const innOf=(el,b)=>el.dir==='h'?[0,(b.y+b.h/2)<=S.D/2?1:-1]:[(b.x+b.w/2)<=S.W/2?1:-1,0];
+// Οι δύο μεγάλες όψεις ενός προφίλ (σε οποιαδήποτε γωνία): «in» = προς το κέντρο του περιπτέρου, «out» = η άλλη
+function profFaces(el){
+  const q=profCorners(el), ax0=[q[3][0]-q[0][0],q[3][1]-q[0][1]], L=Math.hypot(...ax0)||1, p={quad:q,ax:[ax0[0]/L,ax0[1]/L]};
+  const F=pieceFaces(p); let i=F[0].inward&&!F[1].inward?0:1; // ισοπαλία → η όψη +πάχος θεωρείται εσωτερική
+  return {p,in:F[i],out:F[1-i]};
+}
 function parts(){
   const out=[], H=S.H;
   const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
@@ -23,8 +28,8 @@ function parts(){
   out.push({name:'DAPEDO',el:'floor',quad:rect(0,0,S.W,S.D),z0:-D3.floorH,z1:0,face:all('floor')});
   S.els.forEach(el=>{
     if(isProf(el)){
-      const b=bbox(el), code=PROF[el.type].code, inn=innOf(el,b);
-      out.push({name:`${code}_${Math.round(el.len)}x${H}${lit(el)?'_LED':''}`,el:el.id,inn,quad:rect(b.x,b.y,b.w,b.h),z0:0,z1:H,
+      const code=PROF[el.type].code, pf=profFaces(el), inn=pf.in.n;
+      out.push({name:`${code}_${Math.round(el.len)}x${H}${lit(el)?'_LED':''}`,el:el.id,inn,quad:pf.p.quad,z0:0,z1:H,
         face:(tag,n)=>tag==='side'&&n[0]*inn[0]+n[2]*inn[1]>.9?'graphic':'frame'});
     } else if(el.type==='conn'){
       const b=bbox(el); out.push({name:'CONN',quad:rect(b.x,b.y,b.w,b.h),z0:0,z1:H,face:all('alu')});
@@ -130,16 +135,11 @@ function surface(key){
       c:[[L[0]+o[0],p.z0,L[1]+o[1]],[Rt[0]+o[0],p.z0,Rt[1]+o[1]],[Rt[0]+o[0],p.z1,Rt[1]+o[1]],[L[0]+o[0],p.z1,L[1]+o[1]]],n:[nx,0,ny]};
   }
   if(!isProf(el)) return null;
-  const b=bbox(el), inn=innOf(el,b), s=side==='in'?1:-1, H=S.H, code=PROF[el.type].code;
+  if(side!=='in'&&side!=='out') return null;
+  const H=S.H, code=PROF[el.type].code, f=profFaces(el)[side], [nx,ny]=f.n, r=[ny,-nx], o=[nx*OFF,ny*OFF];
+  let [L,Rt]=[f.e1,f.e2]; if(L[0]*r[0]+L[1]*r[1]>Rt[0]*r[0]+Rt[1]*r[1]) [L,Rt]=[Rt,L];
   const label=`${code} · ${fmt(el.len)} × ${fmt(H)} cm · ${side==='in'?'εσωτερική':'εξωτερική'} όψη`;
-  if(el.dir==='h'){
-    const dir=inn[1]*s, y=dir>0?b.y+b.h+OFF:b.y-OFF; // κοιτάει προς +y (μπροστά) ή −y (πίσω)
-    const [xl,xr]=dir>0?[b.x,b.x+b.w]:[b.x+b.w,b.x];
-    return {key,w:b.w,h:H,label,c:[[xl,0,y],[xr,0,y],[xr,H,y],[xl,H,y]],n:[0,0,dir]};
-  }
-  const dir=inn[0]*s, x=dir>0?b.x+b.w+OFF:b.x-OFF;      // κοιτάει προς +x ή −x
-  const [yl,yr]=dir>0?[b.y+b.h,b.y]:[b.y,b.y+b.h];
-  return {key,w:b.h,h:H,label,c:[[x,0,yl],[x,0,yr],[x,H,yr],[x,H,yl]],n:[dir,0,0]};
+  return {key,w:el.len,h:H,label,c:[[L[0]+o[0],0,L[1]+o[1]],[Rt[0]+o[0],0,Rt[1]+o[1]],[Rt[0]+o[0],H,Rt[1]+o[1]],[L[0]+o[0],H,L[1]+o[1]]],n:[nx,0,ny]};
 }
 // UV με «γέμισμα» (κρατά αναλογία, κόβει περιμετρικά) ή «τέντωμα»
 function uvs(sf,g){

@@ -43,36 +43,66 @@ function segs(total,mod,mode){
 
 /* ---------- geometry ---------- */
 const mul=(A,B)=>[A[0]*B[0]+A[2]*B[1],A[1]*B[0]+A[3]*B[1],A[0]*B[2]+A[2]*B[3],A[1]*B[2]+A[3]*B[3],A[0]*B[4]+A[2]*B[5]+A[4],A[1]*B[4]+A[3]*B[5]+A[5]];
-const ROT={0:[1,0,0,1,0,0],90:[0,1,-1,0,0,0],180:[-1,0,0,-1,0,0],270:[0,-1,1,0,0,0]};
+// Περιστροφή κατά a μοίρες (δεξιόστροφα στην κάτοψη, όπως το SVG rotate). Ακριβή 0 στα πολλαπλάσια των 90°.
+const ROTM=a=>{const r=(+a||0)*Math.PI/180, z=v=>Math.abs(v)<1e-12?0:v, c=z(Math.cos(r)), s=z(Math.sin(r)); return [c,s,-s,c,0,0];};
+const normAng=a=>{a=((+a||0)%360+360)%360; a=Math.round(a*100)/100; return a===360?0:a;};
+const rotPt=(a,[x,y],[ox,oy])=>{const m=ROTM(a), dx=x-ox, dy=y-oy; return [ox+m[0]*dx+m[2]*dy, oy+m[1]*dx+m[3]*dy];};
 function symMatrix(el){
   const [w,h]=SYMBOX[el.type];
   // flip = καθρέφτης αριστερά-δεξιά (πλευρά μεντεσέ), inv = καθρέφτης ως προς τη γραμμή του τοίχου (το φύλλο ανοίγει προς την άλλη μεριά)
   let m=el.flip?[-1,0,0,1,w,0]:[1,0,0,1,0,0];
   if(el.inv) m=mul([1,0,0,-1,0,h],m);
-  m=mul(ROT[el.rot||0],m);
+  m=mul(ROTM(el.rot||0),m);
   const pts=[[0,0],[w,0],[0,h],[w,h]].map(([x,y])=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]]);
   const mx=Math.min(...pts.map(p=>p[0])), my=Math.min(...pts.map(p=>p[1]));
   m[4]+=el.x-mx; m[5]+=el.y-my;
   return {m,w:Math.max(...pts.map(p=>p[0]))-mx,h:Math.max(...pts.map(p=>p[1]))-my};
 }
+// Προφίλ υπό ελεύθερη γωνία: dir 'h' + ang (μοίρες, εκτός 0/90/180), άξονας περιστροφής η αρχή (el.x, el.y).
+// profW(el,u,v): τοπικό σημείο (u κατά μήκος, v κατά το πάχος) → συντεταγμένες κάτοψης.
+const isRot=el=>isProf(el)&&!!el.ang;
+function profW(el,u,v){
+  if(el.dir==='v'&&!el.ang) return [el.x+v, el.y+u];
+  return el.ang?rotPt(el.ang,[el.x+u,el.y+v],[el.x,el.y]):[el.x+u,el.y+v];
+}
+const profCorners=el=>{const t=PROF[el.type].t; return [profW(el,0,0),profW(el,el.len,0),profW(el,el.len,t),profW(el,0,t)];};
+const localBox=el=>({x:el.x,y:el.y,w:el.len,h:PROF[el.type].t});   // κουτί προφίλ στο δικό του (μη περιστραμμένο) πλαίσιο
+const withRot=(P,el,fn)=>{if(isRot(el)){P.push(el.ang,el.x,el.y); fn(); P.pop();} else fn();};
 function bbox(el){
+  if(isRot(el)){const q=profCorners(el), xs=q.map(p=>p[0]), ys=q.map(p=>p[1]), x=Math.min(...xs), y=Math.min(...ys); return {x,y,w:Math.max(...xs)-x,h:Math.max(...ys)-y};}
   if(isProf(el)){const t=PROF[el.type].t; return el.dir==='h'?{x:el.x,y:el.y,w:el.len,h:t}:{x:el.x,y:el.y,w:t,h:el.len};}
   if(el.type==='store') return {x:el.x,y:el.y,w:el.w,h:el.h};
   const s=symMatrix(el); return {x:el.x,y:el.y,w:s.w,h:s.h};
 }
 const hit=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
 const solids=ex=>S.els.filter(e=>e.type!=='store'&&e.id!==ex);
-function rotateEl(el){
-  const b=bbox(el), cx=b.x+b.w/2, cy=b.y+b.h/2;
-  if(isProf(el)) el.dir=el.dir==='h'?'v':'h';
-  else if(el.type==='store') [el.w,el.h]=[el.h,el.w];
-  else el.rot=((el.rot||0)+90)%360;
+// Γωνία στοιχείου σε μοίρες (0–360). Η αλλαγή γίνεται πάντα γύρω από το κέντρο του στοιχείου.
+function getAngle(el){
+  if(isProf(el)) return el.ang?normAng(el.ang):(el.dir==='v'?90:0);
+  return el.type==='store'?0:normAng(el.rot||0);
+}
+function setAngle(el,T){
+  if(el.type==='store') return;
+  T=normAng(T);
+  if(isProf(el)){
+    const t=PROF[el.type].t, c=profW(el,el.len/2,t/2), r=T%180;
+    el.ang=0; if(r===0) el.dir='h'; else if(r===90) el.dir='v'; else {el.dir='h'; el.ang=r>90?r-180:r;}
+    if(!el.ang) delete el.ang;
+    el.x=0; el.y=0; const c0=profW(el,el.len/2,t/2); el.x=n(c[0]-c0[0]); el.y=n(c[1]-c0[1]);
+    return;
+  }
+  const b=bbox(el), cx=b.x+b.w/2, cy=b.y+b.h/2; el.rot=T;
   const nb=bbox(el); el.x=n(cx-nb.w/2); el.y=n(cy-nb.h/2);
+}
+function rotateEl(el){
+  if(el.type==='store'){const b=bbox(el), cx=b.x+b.w/2, cy=b.y+b.h/2; [el.w,el.h]=[el.h,el.w]; el.x=n(cx-el.w/2); el.y=n(cy-el.h/2); return;}
+  setAngle(el,getAngle(el)+90);
 }
 
 /* ---------- rules ---------- */
 function endRegion(el,end){
   const t=PROF[el.type].t;
+  if(isRot(el)){const p=profW(el,end==='start'?0:el.len,t/2); return {x:p[0]-2.5,y:p[1]-2.5,w:5,h:5};}
   if(el.dir==='h'){const x=end==='start'?el.x:el.x+el.len; return {x:x-1,y:el.y-1,w:2,h:t+2};}
   const y=end==='start'?el.y:el.y+el.len; return {x:el.x-1,y:y-1,w:t+2,h:2};
 }
@@ -90,7 +120,7 @@ function storeBackSides(st){
   return s;
 }
 function onStoreBack(p){
-  if(!isProf(p)) return false;
+  if(!isProf(p)||isRot(p)) return false; // τοίχος υπό γωνία δεν θεωρείται πίσω πλευρά αποθήκης
   const b=bbox(p);
   return S.els.filter(e=>e.type==='store').some(st=>storeBackSides(st).some(sd=>{
     if(sd.ax==='h'){ if(p.dir!=='h') return false;
@@ -100,7 +130,7 @@ function onStoreBack(p){
     const inBand=sd.in>0?(b.x>=sd.c-2&&b.x<=sd.c+20):(b.x+b.w<=sd.c+2&&b.x+b.w>=sd.c-20);
     return inBand&&Math.min(b.y+b.h,sd.b)-Math.max(b.y,sd.a)>10;}));
 }
-const endName=(el,end)=>el.dir==='h'?(end==='start'?'αριστερή':'δεξιά'):(end==='start'?'πάνω':'κάτω');
+const endName=(el,end)=>isRot(el)?(end==='start'?'αρχική':'τελική'):el.dir==='h'?(end==='start'?'αριστερή':'δεξιά'):(end==='start'?'πάνω':'κάτω');
 function computeIssues(){
   const out=[];
   S.els.filter(isProf).forEach(el=>{
@@ -109,7 +139,7 @@ function computeIssues(){
       out.push({sev:'warn',id:el.id,kind:'long',msg:`Μονοκόμματο πλαίσιο ${code} ${fmt(el.len)} cm. Προτείνεται χωρισμός σε ${k} × ${part} cm, γιατί στήνεται πιο εύκολα.`,fixes:[[`Χωρισμός σε ${k} × ${part}`,'split'],['Κράτα μονοκόμματο','keep']]});}
     if(lit(el)&&onStoreBack(el))
       out.push({sev:'err',id:el.id,kind:'back',msg:`Πίσω πλευρά αποθήκης με φωτιζόμενο πλαίσιο (${code} ${fmt(el.len)} cm). Η πίσω πλευρά της αποθήκης γίνεται πάντα με μη φωτιζόμενα πλαίσια.`,fixes:[['Αλλαγή σε 4,5 cm','to68'],['Κράτα 15 cm χωρίς LED','unlit']]});
-    freeEnds(el).forEach(end=>out.push({sev:'warn',id:el.id,end,kind:'free',msg:`Ελεύθερη ${endName(el,end)} άκρη στο ${code} ${fmt(el.len)} cm. Για καλύτερη στήριξη βάλε γύρισμα.`,fixes:[['Γύρισμα 15 cm','ret67'],['Γύρισμα 4,5 cm','ret68'],['Δεν χρειάζεται','okend']]}));
+    freeEnds(el).forEach(end=>out.push({sev:'warn',id:el.id,end,kind:'free',msg:`Ελεύθερη ${endName(el,end)} άκρη στο ${code} ${fmt(el.len)} cm. Για καλύτερη στήριξη βάλε γύρισμα.`,fixes:isRot(el)?[['Δεν χρειάζεται','okend']]:[['Γύρισμα 15 cm','ret67'],['Γύρισμα 4,5 cm','ret68'],['Δεν χρειάζεται','okend']]}));
   });
   return out;
 }
@@ -118,7 +148,8 @@ function splitEl(el){
   const base=Math.floor(el.len/k/S.snap)*S.snap, ids=[el.id], total=el.len;
   el.len=base; let off=base;
   for(let i=1;i<k;i++){const len=i===k-1?n(total-base*(k-1)):base;
-    const c={...el,id:newId(),len,okEnds:undefined}; if(el.dir==='h')c.x=n(el.x+off); else c.y=n(el.y+off);
+    const c={...el,id:newId(),len,okEnds:undefined};
+    if(isRot(el)){const q=profW(el,off,0); c.x=n(q[0]); c.y=n(q[1]);} else if(el.dir==='h')c.x=n(el.x+off); else c.y=n(el.y+off);
     S.els.push(c); ids.push(c.id); off+=len;}
   return ids;
 }
@@ -164,10 +195,14 @@ function svgPainter(inline){
     line(x1,y1,x2,y2,s,sw){o+=`<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" ${a(null,s,sw)}/>`;},
     pline(p,s,sw){o+=`<polyline points="${p.map(q=>n(q[0])+','+n(q[1])).join(' ')}" fill="none" stroke="${s}" stroke-width="${n(sw)}" stroke-linecap="round" stroke-linejoin="round"/>`;},
     poly(p,f){o+=`<polygon points="${p.map(q=>n(q[0])+','+n(q[1])).join(' ')}" fill="${f}"/>`;},
+    polyS(p,f,s,sw){o+=`<polygon points="${p.map(q=>n(q[0])+','+n(q[1])).join(' ')}" ${a(f,s,sw)}/>`;},
+    push(ang,ox,oy){o+=`<g transform="rotate(${n(ang)} ${n(ox)} ${n(oy)})">`;},
+    pop(){o+='</g>';},
     sym(name,m){
       if(inline) o+=`<g transform="matrix(${m.map(n).join(' ')})">`+SYM[name].map(p=>`<path d="${p.d}" ${a(p.f,p.s,p.w)}/>`).join('')+'</g>';
       else o+=`<use href="#sym-${name}" transform="matrix(${m.map(n).join(' ')})"/>`;},
-    text(x,y,t,size,f,rot){o+=`<text x="${n(x)}" y="${n(y)}" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="${n(size)}" fill="${f}" text-anchor="middle" dominant-baseline="central"${rot?` transform="rotate(-90 ${n(x)} ${n(y)})"`:''}>${t}</text>`;},
+    // rot: true = κάθετο (−90°) ή αριθμός μοιρών
+    text(x,y,t,size,f,rot){const g=rot===true?-90:(+rot||0); o+=`<text x="${n(x)}" y="${n(y)}" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="${n(size)}" fill="${f}" text-anchor="middle" dominant-baseline="central"${g?` transform="rotate(${n(g)} ${n(x)} ${n(y)})"`:''}>${t}</text>`;},
     raw(s){o+=s;},
     begin(id,b){o+=`<g data-id="${id}" class="el"><rect x="${n(b.x-3)}" y="${n(b.y-3)}" width="${n(b.w+6)}" height="${n(b.h+6)}" fill="transparent"/>`;},
     end(){o+='</g>';},
@@ -184,10 +219,13 @@ function pdfPainter(){
     line(x1,y1,x2,y2,s,sw){o+=`${rgb(s)} RG ${n(sw)} w ${n(x1)} ${n(y1)} m ${n(x2)} ${n(y2)} l S\n`;},
     pline(p,s,sw){o+=`${rgb(s)} RG ${n(sw)} w 1 J ${p.map((q,i)=>`${n(q[0])} ${n(q[1])} ${i?'l':'m'}`).join(' ')} S 0 J\n`;},
     poly(p,f){o+=`${rgb(f)} rg ${p.map((q,i)=>`${n(q[0])} ${n(q[1])} ${i?'l':'m'}`).join(' ')} h f\n`;},
+    polyS(p,f,s,sw){const [c,op]=paint(f,s,sw);o+=`${c}${p.map((q,i)=>`${n(q[0])} ${n(q[1])} ${i?'l':'m'}`).join(' ')} h ${op}\n`;},
+    push(ang,ox,oy){const m=ROTM(ang), c=m[0], s=m[1]; o+=`q ${n(c)} ${n(s)} ${n(-s)} ${n(c)} ${n(ox-c*ox+s*oy)} ${n(oy-s*ox-c*oy)} cm\n`;},
+    pop(){o+='Q\n';},
     sym(name,m){o+=`q ${m.map(n).join(' ')} cm\n`;SYM[name].forEach(p=>{const [c,op]=paint(p.f,p.s,p.w);o+=`${c}${p.p} ${op}\n`;});o+='Q\n';},
-    text(x,y,t,size,f,rot){const w=textW(t,size);
-      o+=rot?`BT /F1 ${n(size)} Tf ${rgb(f)} rg 0 -1 -1 0 ${n(x+size*.35)} ${n(y+w/2)} Tm (${t}) Tj ET\n`
-            :`BT /F1 ${n(size)} Tf ${rgb(f)} rg 1 0 0 -1 ${n(x-w/2)} ${n(y+size*.35)} Tm (${t}) Tj ET\n`;},
+    text(x,y,t,size,f,rot){const w=textW(t,size), m=ROTM(rot===true?-90:(+rot||0)), c=m[0], s=m[1];
+      const sx=x+c*(-w/2)-s*(size*.35), sy=y+s*(-w/2)+c*(size*.35);
+      o+=`BT /F1 ${n(size)} Tf ${rgb(f)} rg ${n(c)} ${n(s)} ${n(s)} ${n(-c)} ${n(sx)} ${n(sy)} Tm (${t}) Tj ET\n`;},
     raw(){},begin(){},end(){},out:()=>o};
 }
 /* stroke lettering so the Greek label prints in any PDF viewer */
@@ -216,15 +254,14 @@ function prodRects(el){
 }
 const tfOf=el=>{const m=symMatrix(el).m; return ([x,y])=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];};
 function drawProd(P,el){
-  const p=PRODUCTS[el.type], tf=tfOf(el), b=bbox(el), vert=(el.rot||0)%180!==0;
-  prodRects(el).forEach(([x,y,w,h])=>{const q=[[x,y],[x+w,y+h]].map(tf);
-    P.rect(Math.min(q[0][0],q[1][0]),Math.min(q[0][1],q[1][1]),Math.abs(q[1][0]-q[0][0]),Math.abs(q[1][1]-q[0][1]),p.fill,C.S,.25);});
+  const p=PRODUCTS[el.type], tf=tfOf(el);
+  prodRects(el).forEach(([x,y,w,h])=>P.polyS([[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(tf),p.fill,C.S,.25));
   if(el.type==='desk'){const f=[[1.5,p.d-1.2],[p.w-1.5,p.d-1.2]].map(tf); P.line(f[0][0],f[0][1],f[1][0],f[1][1],'#17202A',1.6);} // μπροστινή όψη
-  const cx=b.x+b.w/2, cy=b.y+b.h/2, L=vert?b.h:b.w;
-  if(el.type==='banner'){const t=`${p.code} ${p.dims}`, fs=Math.min(p.bar*.62,L*.86/(t.length*.74)); P.text(cx,cy,t,fs,'#17202A',vert); return;}
-  const S2=vert?b.w:b.h, fs=Math.min(S2*.2,L*.82/(Math.max(p.code.length,p.dims.length)*.76)), off=fs*.62;
-  if(vert){P.text(cx-off,cy,p.code,fs,'#17202A',true); P.text(cx+off,cy,p.dims,fs,'#17202A',true);}
-  else {P.text(cx,cy-off,p.code,fs,'#17202A',false); P.text(cx,cy+off,p.dims,fs,'#17202A',false);}
+  // κείμενο παράλληλο στο πλάτος του προϊόντος, πάντα ευανάγνωστο (−90°..90°)
+  const [cx,cy]=tf([p.w/2,p.d/2]), ta=((normAng(el.rot||0)+90)%180)-90, L=p.w;
+  if(el.type==='banner'){const t=`${p.code} ${p.dims}`, fs=Math.min(p.bar*.62,L*.86/(t.length*.74)); P.text(cx,cy,t,fs,'#17202A',ta); return;}
+  const fs=Math.min(p.d*.2,L*.82/(Math.max(p.code.length,p.dims.length)*.76)), off=fs*.62, m=ROTM(ta), vx=-m[1]*off, vy=m[0]*off;
+  P.text(cx-vx,cy-vy,p.code,fs,'#17202A',ta); P.text(cx+vx,cy+vy,p.dims,fs,'#17202A',ta);
 }
 function drawEl(P,el){ if(isProf(el)) drawProfile(P,el); else if(isProd(el)) drawProd(P,el); else P.sym(el.type,symMatrix(el).m); }
 function drawStore(P,st,preview){
@@ -261,8 +298,8 @@ function drawPlan(P,o){
   S.els.filter(e=>e.type==='store').forEach(st=>{P.begin(st.id,bbox(st));drawStore(P,st,o.preview);P.end();});
   if(S.overall){dimH(P,0,W,-34*K,-3,-1,fmtDim(W)); dimV(P,0,D,-34*K,-3,-1,fmtDim(D));}
   const order={p67:1,p68:2,door:3,conn:4};
-  S.els.filter(e=>e.type!=='store').sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>{P.begin(el.id,bbox(el));drawEl(P,el);P.end();});
-  S.els.forEach(el=>drawDim(P,el));
+  S.els.filter(e=>e.type!=='store').sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>withRot(P,el,()=>{P.begin(el.id,isRot(el)?localBox(el):bbox(el));drawEl(P,el);P.end();}));
+  S.els.forEach(el=>withRot(P,el,()=>drawDim(P,el)));
   if(o.ghost){P.raw('<g opacity=".55" pointer-events="none">'); if(o.ghost.type==='store')drawStore(P,o.ghost,true); else {drawEl(P,o.ghost);drawDim(P,o.ghost);} P.raw('</g>');}
   if(!o.preview) return;
   // rule markers
@@ -273,16 +310,16 @@ function drawPlan(P,o){
     if(guides.x!=null) P.raw(`<line x1="${n(guides.x)}" y1="-40" x2="${n(guides.x)}" y2="${S.D+40}" ${g}/>`);
     if(guides.y!=null) P.raw(`<line x1="-40" y1="${n(guides.y)}" x2="${S.W+40}" y2="${n(guides.y)}" ${g}/>`);}
   const el=byId(sel);
-  if(el&&isProf(el)){ // λαβές μήκους στις δύο άκρες: τράβηγμα = μίκρυνση / μεγάλωμα του πλαισίου
+  if(el&&isProf(el)) withRot(P,el,()=>{ // λαβές μήκους στις δύο άκρες: τράβηγμα = μίκρυνση / μεγάλωμα του πλαισίου
     const t=PROF[el.type].t, H=el.dir==='h', hw=4.2*K, hl=9*K, cur=H?'ew-resize':'ns-resize';
     [['a',H?el.x:el.x+t/2,H?el.y+t/2:el.y],['b',H?el.x+el.len:el.x+t/2,H?el.y+t/2:el.y+el.len]].forEach(([k,cx,cy])=>{
       const w=H?hw:hl, h=H?hl:hw;
-      P.raw(`<g data-handle="len-${k}" style="cursor:${cur}"><title>Τράβηξε για αλλαγή μήκους</title><rect x="${n(cx-w/2-4*K)}" y="${n(cy-h/2-4*K)}" width="${n(w+8*K)}" height="${n(h+8*K)}" fill="transparent"/><rect x="${n(cx-w/2)}" y="${n(cy-h/2)}" width="${n(w)}" height="${n(h)}" rx="${n(1.5*K)}" fill="#FFFFFF" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/></g>`);
+      P.raw(`<g data-handle="len-${k}" style="cursor:${isRot(el)?'move':cur}"><title>Τράβηξε για αλλαγή μήκους</title><rect x="${n(cx-w/2-4*K)}" y="${n(cy-h/2-4*K)}" width="${n(w+8*K)}" height="${n(h+8*K)}" fill="transparent"/><rect x="${n(cx-w/2)}" y="${n(cy-h/2)}" width="${n(w)}" height="${n(h)}" rx="${n(1.5*K)}" fill="#FFFFFF" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/></g>`);
     });
-  }
-  if(el){const b=bbox(el), r=6*K, hx=b.x+b.w+r*1.4, hy=b.y-r*1.4;
+  });
+  if(el) withRot(P,el,()=>{const b=isRot(el)?localBox(el):bbox(el), r=6*K, hx=b.x+b.w+r*1.4, hy=b.y-r*1.4;
     P.raw(`<rect x="${n(b.x-4)}" y="${n(b.y-4)}" width="${n(b.w+8)}" height="${n(b.h+8)}" fill="none" stroke="${C.acc}" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" pointer-events="none"/>`);
-    P.raw(`<g data-handle="rot" style="cursor:pointer"><title>Περιστροφή 90°</title><circle cx="${n(hx)}" cy="${n(hy)}" r="${n(r)}" fill="#FFFFFF" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="M${n(hx+r*.5)} ${n(hy-r*.05)} A ${n(r*.5)} ${n(r*.5)} 0 1 1 ${n(hx+r*.15)} ${n(hy-r*.47)}" fill="none" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="M${n(hx+r*.1)} ${n(hy-r*.75)} L${n(hx+r*.42)} ${n(hy-r*.45)} L${n(hx+r*.02)} ${n(hy-r*.2)}" fill="none" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/></g>`);}
+    P.raw(`<g data-handle="rot" style="cursor:pointer"><title>Περιστροφή 90°</title><circle cx="${n(hx)}" cy="${n(hy)}" r="${n(r)}" fill="#FFFFFF" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="M${n(hx+r*.5)} ${n(hy-r*.05)} A ${n(r*.5)} ${n(r*.5)} 0 1 1 ${n(hx+r*.15)} ${n(hy-r*.47)}" fill="none" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="M${n(hx+r*.1)} ${n(hy-r*.75)} L${n(hx+r*.42)} ${n(hy-r*.45)} L${n(hx+r*.02)} ${n(hy-r*.2)}" fill="none" stroke="${C.acc}" stroke-width="2" vector-effect="non-scaling-stroke"/></g>`);});
 }
 
 $('hset').innerHTML=HEIGHTS.map(v=>`<button data-v="${v}">${v}</button>`).join('');
@@ -352,7 +389,8 @@ function renderRules(){
 function renderInspector(){
   const el=byId(sel), box=$('insp');
   if(!el){box.innerHTML=`<div class="lbl">Επιλεγμένο στοιχείο</div><div class="empty">Τίποτα επιλεγμένο. Πάτα ένα πλαίσιο, πόρτα, σύνδεσμο ή αποθήκη για να αλλάξεις μήκος, θέση και διάσταση.</div>`;return;}
-  const xy=`<div class="row"><label class="field"><span>X (cm)</span><input id="i-x" type="number" step="${S.snap}" value="${n(el.x)}"></label><label class="field"><span>Y (cm)</span><input id="i-y" type="number" step="${S.snap}" value="${n(el.y)}"></label></div>`;
+  const xy=`<div class="row"><label class="field"><span>X (cm)</span><input id="i-x" type="number" step="${S.snap}" value="${n(el.x)}"></label><label class="field"><span>Y (cm)</span><input id="i-y" type="number" step="${S.snap}" value="${n(el.y)}"></label></div>`+
+    (el.type==='store'?'':`<div class="row"><label class="field"><span>Γωνία (°)</span><input id="i-ang" type="number" step="1" min="-360" max="360" value="${getAngle(el)}"></label><div class="seg" style="flex:none"><button data-act="ang" data-v="-15" title="−15°">−15°</button><button data-act="ang" data-v="15" title="+15°">+15°</button></div></div>`);
   const acts=`<div class="seg"><button data-act="rot">Περιστροφή 90°</button><button data-act="dup">Αντίγραφο</button><button data-act="del">Διαγραφή</button></div>`;
   let h='';
   if(isProf(el)){
@@ -427,10 +465,10 @@ svg.addEventListener('pointerdown',e=>{
   const p=toCm(e);
   if(e.target.closest('[data-handle="rot"]')){act('rot');return;}
   const lh=e.target.closest('[data-handle^="len-"]');
-  if(lh&&byId(sel)){const el=byId(sel); resize={end:lh.dataset.handle.slice(4),start:el.dir==='h'?el.x:el.y,stop:(el.dir==='h'?el.x:el.y)+el.len,moved:false}; svg.setPointerCapture(e.pointerId); return;}
+  if(lh&&byId(sel)){const el=byId(sel); resize={end:lh.dataset.handle.slice(4),start:el.dir==='h'?el.x:el.y,stop:(el.dir==='h'?el.x:el.y)+el.len,ang:el.ang||0,O:[el.x,el.y],moved:false}; svg.setPointerCapture(e.pointerId); return;}
   if(tool==='select'){
     const g=e.target.closest('[data-id]');
-    if(g){sel=g.dataset.id; const el=byId(sel), b=bbox(el); drag={sx:p.x,sy:p.y,ox:el.x,oy:el.y,bw:b.w,bh:b.h,moved:false}; svg.setPointerCapture(e.pointerId);}
+    if(g){sel=g.dataset.id; const el=byId(sel), b=bbox(el); drag={sx:p.x,sy:p.y,ox:el.x,oy:el.y,bx:b.x,by:b.y,bw:b.w,bh:b.h,moved:false}; svg.setPointerCapture(e.pointerId);}
     else {sel=null; pan={x:e.clientX,y:e.clientY,cx:Z.cx,cy:Z.cy}; svg.setPointerCapture(e.pointerId);}
     renderPlan(); renderInspector(); return;
   }
@@ -453,17 +491,21 @@ svg.addEventListener('pointermove',e=>{
   if(pan){const ctm=svg.getScreenCTM(); Z.cx=pan.cx-(e.clientX-pan.x)/ctm.a; Z.cy=pan.cy-(e.clientY-pan.y)/ctm.d; if(Z.z===1)Z.z=1.0001; svg.classList.add('pan'); renderPlan(); return;}
   const p=toCm(e); $('pos').textContent=`${fmt(snapV(p.x))}, ${fmt(snapV(p.y))} cm`;
   if(resize){const el=byId(sel); if(!el) return;
-    const H=el.dir==='h', t=PROF[el.type].t, ax=H?'x':'y', raw=p[ax], MIN=10;
-    const lo=H?el.y:el.x, mg=(e.altKey||S.magnet===false)?null:bestSnap([raw],axisCands(ax,lo,lo+t,el.id));
+    // υπό γωνία: το σημείο του ποντικιού γυρίζει στο τοπικό πλαίσιο του προφίλ (χωρίς μαγνήτη)
+    const A=resize.ang, pl=A?rotPt(-A,[p.x,p.y],resize.O):[p.x,p.y];
+    const H=el.dir==='h', t=PROF[el.type].t, ax=H?'x':'y', raw=H?pl[0]:pl[1], MIN=10;
+    const lo=H?el.y:el.x, mg=(A||e.altKey||S.magnet===false)?null:bestSnap([raw],axisCands(ax,lo,lo+t,el.id));
     let len;
     if(resize.end==='b'){const pos=mg?mg.g:resize.start+snapV(raw-resize.start); len=Math.max(MIN,n(pos-resize.start));}
-    else {const pos=mg?mg.g:resize.stop-snapV(resize.stop-raw); len=Math.max(MIN,n(resize.stop-pos)); el[ax]=n(resize.stop-len);}
+    else {const pos=mg?mg.g:resize.stop-snapV(resize.stop-raw); len=Math.max(MIN,n(resize.stop-pos));
+      if(A){const q=rotPt(A,[resize.stop-len,resize.O[1]],resize.O); el.x=n(q[0]); el.y=n(q[1]);} else el[ax]=n(resize.stop-len);}
     el.len=len; resize.moved=true; guides=mg?(H?{x:mg.g,y:null}:{x:null,y:mg.g}):null;
     $('pos').textContent=`μήκος ${fmt(len)} cm`; renderPlan();
     const il=$('i-len'); if(il) il.value=n(len); return;}
   if(drag){const el=byId(sel); if(!el)return;
-    const s=snapBox({x:drag.ox+p.x-drag.sx,y:drag.oy+p.y-drag.sy,w:drag.bw,h:drag.bh},el.id,e.altKey);
-    el.x=s.x; el.y=s.y; guides={x:s.gx,y:s.gy}; drag.moved=true; renderPlan();
+    // ο μαγνήτης δουλεύει στο εξωτερικό κουτί (bbox). Σε στοιχείο υπό γωνία η αρχή του διαφέρει από τη γωνία του κουτιού
+    const s=snapBox({x:drag.bx+p.x-drag.sx,y:drag.by+p.y-drag.sy,w:drag.bw,h:drag.bh},el.id,e.altKey);
+    el.x=n(drag.ox+s.x-drag.bx); el.y=n(drag.oy+s.y-drag.by); guides={x:s.gx,y:s.gy}; drag.moved=true; renderPlan();
     const ix=$('i-x'),iy=$('i-y'); if(ix){ix.value=n(el.x);iy.value=n(el.y);} }
   else if(drawing){
     if(drawing.type==='store'){const g=storeFromDrag(drawing.x0,drawing.y0,p,e.altKey); renderPlan(g); $('pos').textContent=`${fmt(g.w)} × ${fmt(g.h)} cm`;}
@@ -497,6 +539,7 @@ function act(a,v){
   const el=byId(sel); if(!el) return;
   if(a==='dim') el.dim=v;
   if(a==='rot') rotateEl(el);
+  if(a==='ang') setAngle(el,getAngle(el)+(+v||0));
   if(a==='flip'&&el.type==='door') el.flip=!el.flip;
   if(a==='top'&&PRODUCTS[el.type]&&PRODUCTS[el.type].topOption) el.top=v;
   if(a==='inv'&&el.type==='door'){
@@ -513,6 +556,7 @@ $('insp').addEventListener('click',e=>{const b=e.target.closest('button[data-act
 $('insp').addEventListener('change',e=>{
   const el=byId(sel); if(!el) return; const t=e.target;
   if(t.id==='i-len') el.len=Math.max(1,Math.round(+t.value*10)/10||el.len);
+  if(t.id==='i-ang'){setAngle(el,+t.value||0); commit(); renderAll(); return;}
   if(t.id==='i-x') el.x=+t.value||0;
   if(t.id==='i-y') el.y=+t.value||0;
   if(t.id==='i-w') el.w=Math.max(20,+t.value||el.w);
