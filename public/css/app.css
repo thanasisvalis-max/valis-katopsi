@@ -142,3 +142,8 @@ body.v3d-open{overflow:hidden}
 .v3d-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .v3d-list li{display:flex;align-items:center;gap:6px}
 .v3d-list button{flex:1;text-align:left;font-size:12px;padding:5px 8px;min-width:0;overflow-wrap:anywhere}
+/* Κατάσταση πλαισίου: καινούργιο (πράσινο) / μετατροπή (κίτρινο) */
+.pill.st-new{background:#3E8E3A;color:#fff}
+.pill.st-mod{background:#B8960C;color:#fff}
+.st-seg button.st-new[aria-pressed="true"]{background:#8CCB7E;border-color:#3E8E3A;color:#123A10}
+.st-seg button.st-mod[aria-pressed="true"]{background:#F4D35E;border-color:#B8960C;color:#3B2C00}

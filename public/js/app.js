@@ -231,18 +231,31 @@ function pdfPainter(){
 /* stroke lettering so the Greek label prints in any PDF viewer */
 const ell=(cx,cy,rx,ry)=>Array.from({length:25},(_,i)=>[cx+rx*Math.cos(i/24*2*Math.PI),cy+ry*Math.sin(i/24*2*Math.PI)]);
 const GL={'Α':[[[0,1],[.35,0],[.7,1]],[[.13,.62],[.57,.62]]],'Π':[[[0,1],[0,0],[.7,0],[.7,1]]],'Ο':[ell(.35,.5,.35,.5)],
-  'Θ':[ell(.35,.5,.35,.5),[[.17,.5],[.53,.5]]],'Η':[[[0,0],[0,1]],[[.7,0],[.7,1]],[[0,.5],[.7,.5]]],'Κ':[[[0,0],[0,1]],[[.68,0],[.03,.58]],[[.25,.4],[.7,1]]]};
+  'Θ':[ell(.35,.5,.35,.5),[[.17,.5],[.53,.5]]],'Η':[[[0,0],[0,1]],[[.7,0],[.7,1]],[[0,.5],[.7,.5]]],'Κ':[[[0,0],[0,1]],[[.68,0],[.03,.58]],[[.25,.4],[.7,1]]],
+  'Ι':[[[.35,0],[.35,1]]],'Ν':[[[0,1],[0,0],[.7,1],[.7,0]]],'Υ':[[[0,0],[.35,.5],[.7,0]],[[.35,.5],[.35,1]]],
+  'Ρ':[[[0,1],[0,0],[.5,0],[.7,.13],[.7,.37],[.5,.5],[0,.5]]],'Γ':[[[0,1],[0,0],[.7,0]]],'Λ':[[[0,1],[.35,0],[.7,1]]],
+  'Σ':[[[.7,0],[0,0],[.35,.5],[0,1],[.7,1]]],'Μ':[[[0,1],[0,0],[.35,.55],[.7,0],[.7,1]]],
+  'Ε':[[[.7,0],[0,0],[0,1],[.7,1]],[[0,.5],[.55,.5]]],'Τ':[[[0,0],[.7,0]],[[.35,0],[.35,1]]]};
 function strokeText(P,cx,cy,str,h,col){
   const adv=.98, tw=(str.length*adv-.28)*h; let x0=cx-tw/2; const y0=cy-h/2;
   [...str].forEach((ch,i)=>(GL[ch]||[]).forEach(s=>P.pline(s.map(([x,y])=>[x0+i*adv*h+x*h,y0+y*h]),col,h*.1)));
 }
 
 /* ---------- drawing ---------- */
+// Υπόμνημα κατάστασης πλαισίων κάτω από το περίπτερο (μόνο όσες καταστάσεις υπάρχουν). Γράμματα με γραμμές: δουλεύουν και στο PDF.
+function drawLegend(P,D){
+  const used=Object.keys(STATUS).filter(k=>S.els.some(e=>isProf(e)&&e.st===k)); if(!used.length) return;
+  const h=5, y=D+40, tw=k=>(STATUS[k].label.length*.98-.28)*h;
+  let x=S.W-used.reduce((t,k)=>t+h*3.2+tw(k),0)-h*4*(used.length-1); // στοίχιση δεξιά, μακριά από τις διαστάσεις κάτω αριστερά
+  used.forEach(k=>{const s=STATUS[k], tw=(s.label.length*.98-.28)*h;
+    P.rect(x,y-h*.8,h*2.4,h*1.6,s.L,C.S,.25); strokeText(P,x+h*3.2+tw/2,y,s.label,h,'#17202A'); x+=h*3.2+tw+h*4;});
+}
 function drawProfile(P,el){
+  const st=STATUS[el.st], cL=st?st.L:C.L, cD=st?st.Dk:C.Dk;
   PROF[el.type].strips.forEach(([a,b,dark])=>{
     const ins=dark?1:0;
-    if(el.dir==='h') P.rect(el.x+ins,el.y+a,el.len-2*ins,b-a,dark?C.Dk:C.L,C.S,.25);
-    else P.rect(el.x+a,el.y+ins,b-a,el.len-2*ins,dark?C.Dk:C.L,C.S,.25);
+    if(el.dir==='h') P.rect(el.x+ins,el.y+a,el.len-2*ins,b-a,dark?cD:cL,C.S,.25);
+    else P.rect(el.x+a,el.y+ins,b-a,el.len-2*ins,dark?cD:cL,C.S,.25);
   });
 }
 // τοπικά ορθογώνια ενός προϊόντος LED (πριν την περιστροφή): [x, y, w, h, ρόλος]
@@ -326,6 +339,7 @@ function drawPlan(P,o){
     P.rect(x,y,cw,rh,part?'#F6F1E2':null,C.grid,.2); x+=cw;}); y+=rh;});
   S.els.filter(e=>e.type==='store').forEach(st=>{P.begin(st.id,bbox(st));drawStore(P,st,o.preview);P.end();});
   if(S.overall){dimH(P,0,W,-34*K,-3,-1,fmtDim(W)); dimV(P,0,D,-34*K,-3,-1,fmtDim(D));}
+  drawLegend(P,D);
   const order={p67:1,p68:2,door:3,conn:4};
   S.els.filter(e=>e.type!=='store').sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>withRot(P,el,()=>{P.begin(el.id,isRot(el)?localBox(el):bbox(el));drawEl(P,el);P.end();}));
   S.els.forEach(el=>withRot(P,el,()=>drawDim(P,el)));
@@ -390,24 +404,24 @@ function renderBooth(){
 }
 function bomRows(){
   const g={};
-  S.els.forEach(e=>{let key,code,desc,len='';
+  S.els.forEach(e=>{let key,code,desc,len='',st='';
     if(e.type==='store') return;
     if(isProf(e)){code=PROF[e.type].code; len=e.len;
-      desc=e.type==='p67'?(lit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'; key=code+desc+len;}
+      desc=e.type==='p67'?(lit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'; st=e.st||''; key=code+desc+len+st;}
     else if(e.type==='door'){code='DOOR';desc=`Πόρτα ${DOOR.w}×${S.H} · εκτυπώσεις: φύλλο ${String(DOOR.leafW).replace('.',',')}×${String(DOOR.leafH).replace('.',',')}, πλαϊνό ${DOOR.side}×${DOOR.sideH}, κορωνίδα ${DOOR.w}×${Math.max(0,S.H-DOOR.sideH)}`;key='door';}
     else if(isProd(e)){const p=PRODUCTS[e.type]; code=p.code;
       const pt=e.type==='banner'?'εκτύπωση 2 όψεις':e.type==='desk'?'εκτύπωση μπροστά + 2 πλαϊνά':e.top==='melamine'?'4 πλευρές εκτύπωση + μελαμίνη πάνω':'5 πλευρές εκτύπωση';
       desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; key=e.type+(e.top==='melamine'?'-m':'');}
     else {code='CONN';desc='Σύνδεσμος προφίλ';key='conn';}
-    g[key]=g[key]||{code,desc,len,qty:0}; g[key].qty++;});
-  return Object.values(g).sort((a,b)=>a.code.localeCompare(b.code)||a.desc.localeCompare(b.desc)||(b.len||0)-(a.len||0));
+    g[key]=g[key]||{code,desc,len,st,qty:0}; g[key].qty++;});
+  return Object.values(g).sort((a,b)=>a.code.localeCompare(b.code)||(a.st||'').localeCompare(b.st||'')||a.desc.localeCompare(b.desc)||(b.len||0)-(a.len||0));
 }
 function renderBom(){
   const rows=bomRows();
   if(!rows.length){$('bom').innerHTML='<div class="empty">Δεν υπάρχουν ακόμη στοιχεία στην κάτοψη.</div>';return;}
   const m=t=>fmt(S.els.filter(e=>e.type===t).reduce((s,e)=>s+e.len,0)/100);
   $('bom').innerHTML=`<p class="note">Ύψος πλαισίων: <b>${fmt(S.H)} cm</b></p><table><thead><tr><th>Κωδικός</th><th class="n">Πλαίσιο</th><th class="n">Τεμ.</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td><span class="code">${r.code}</span>${r.code==='PRF0067'?`<span class="pill${r.desc.includes('χωρίς')?' off':''}">${r.desc.includes('χωρίς')?'ΧΩΡΙΣ LED':'LED'}</span>`:''}<br><small style="color:var(--mute)">${r.desc}</small></td><td class="n">${r.len!==''?`${fmt(r.len)} × ${fmt(S.H)}`:'–'}</td><td class="n">${r.qty}</td></tr>`).join('')+
+    rows.map(r=>`<tr><td><span class="code">${r.code}</span>${r.code==='PRF0067'?`<span class="pill${r.desc.includes('χωρίς')?' off':''}">${r.desc.includes('χωρίς')?'ΧΩΡΙΣ LED':'LED'}</span>`:''}${STATUS[r.st]?`<span class="pill st-${r.st}">${STATUS[r.st].name.toUpperCase()}</span>`:''}<br><small style="color:var(--mute)">${r.desc}</small></td><td class="n">${r.len!==''?`${fmt(r.len)} × ${fmt(S.H)}`:'–'}</td><td class="n">${r.qty}</td></tr>`).join('')+
     `<tr class="tot"><td>Σύνολο PRF0067</td><td class="n">${m('p67')} m</td><td></td></tr><tr class="tot"><td>Σύνολο PRF0068</td><td class="n">${m('p68')} m</td><td></td></tr></tbody></table>`;
 }
 function renderRules(){
@@ -431,6 +445,7 @@ function renderInspector(){
     <label class="field"><span>Τύπος</span><select id="i-type"><option value="p67"${el.type==='p67'?' selected':''}>PRF0067 · 15 cm</option><option value="p68"${el.type==='p68'?' selected':''}>PRF0068 · 4,5 cm</option></select></label></div>
     ${el.type==='p67'&&el.len>WARN67?`<label class="check"><input type="checkbox" id="i-keep"${el.keepWhole?' checked':''}> Μονοκόμματο πλαίσιο (χωρίς πρόταση χωρισμού)</label>`:''}
     ${xy}
+    <div class="lbl">Κατάσταση πλαισίου</div><div class="seg st-seg"><button data-act="st" data-v="" aria-pressed="${!el.st}">Υπάρχον</button><button data-act="st" data-v="new" class="st-new" aria-pressed="${el.st==='new'}">Καινούργιο</button><button data-act="st" data-v="mod" class="st-mod" aria-pressed="${el.st==='mod'}">Μετατροπή</button></div>
     <div class="lbl">Διάσταση</div><div class="seg"><button data-act="dim" data-v="a" aria-pressed="${el.dim==='a'}">${H?'Πάνω':'Αριστερά'}</button><button data-act="dim" data-v="b" aria-pressed="${el.dim==='b'}">${H?'Κάτω':'Δεξιά'}</button><button data-act="dim" data-v="none" aria-pressed="${el.dim==='none'}">Καμία</button></div>
     ${el.type==='p67'?`<label class="check"><input type="checkbox" id="i-led"${lit(el)?' checked':''}${back?' disabled':''}> Με φωτισμό LED</label>${back?'<p class="note">Πίσω πλευρά αποθήκης: μόνο μη φωτιζόμενο.</p>':''}`:''}
     ${acts}`;
@@ -568,6 +583,7 @@ window.addEventListener('resize',()=>renderPlan());
 function act(a,v){
   const el=byId(sel); if(!el) return;
   if(a==='dim') el.dim=v;
+  if(a==='st'&&isProf(el)){ if(STATUS[v]) el.st=v; else delete el.st; }
   if(a==='rot') rotateEl(el);
   if(a==='ang') setAngle(el,getAngle(el)+(+v||0));
   if(a==='flip'&&el.type==='door') el.flip=!el.flip;
@@ -663,7 +679,7 @@ function exportSVG(){
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 ${S.W+100} ${S.D+100}" width="${(S.W+100)*10/sc}mm" height="${(S.D+100)*10/sc}mm"><rect x="-50" y="-50" width="${S.W+100}" height="${S.D+100}" fill="#FFFFFF"/>${P.out()}</svg>`;
 }
 function exportCSV(){
-  return '﻿Κωδικός;Περιγραφή;Πλάτος πλαισίου (cm);Ύψος (cm);Τεμάχια\n'+bomRows().map(r=>[r.code,r.desc,r.len===''?'':String(r.len).replace('.',','),r.len===''?'':S.H,r.qty].join(';')).join('\n');
+  return '﻿Κωδικός;Περιγραφή;Κατάσταση;Πλάτος πλαισίου (cm);Ύψος (cm);Τεμάχια\n'+bomRows().map(r=>[r.code,r.desc,r.len===''?'':(STATUS[r.st]?STATUS[r.st].name:'Υπάρχον'),r.len===''?'':String(r.len).replace('.',','),r.len===''?'':S.H,r.qty].join(';')).join('\n');
 }
 // Ονόματα αρχείων σε λατινικά κεφαλαία (όπως τα αρχεία Corel: ATHANASIADIS_KATOPSI). Κάποιοι browsers χαλάνε ελληνικά ονόματα.
 const GR2L={α:'a',ά:'a',β:'v',γ:'g',δ:'d',ε:'e',έ:'e',ζ:'z',η:'i',ή:'i',θ:'th',ι:'i',ί:'i',ϊ:'i',ΐ:'i',κ:'k',λ:'l',μ:'m',ν:'n',ξ:'x',ο:'o',ό:'o',π:'p',ρ:'r',σ:'s',ς:'s',τ:'t',υ:'y',ύ:'y',ϋ:'y',ΰ:'y',φ:'f',χ:'ch',ψ:'ps',ω:'o',ώ:'o'};
