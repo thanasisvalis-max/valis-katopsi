@@ -43,11 +43,12 @@ const D3={floorH:2, personH:175,
 const PRODUCTS={
   cube:  {code:'LED CUBE',      dims:'50X50X50',  w:50, d:50, h:50,  fill:'#9B9796', key:'6', print:['s0','s1','s2','s3'], topOption:true},
   pylon: {code:'LED PYLON',     dims:'50X50X100', w:50, d:50, h:100, fill:'#9B9796', key:'7', print:['s0','s1','s2','s3'], topOption:true},
+  pylon300:{code:'LED PYLON',   dims:'70X70X300', w:70, d:70, h:300, fill:'#C4C4C4', key:'P', print:['s0','s1','s2','s3'], topOption:true},
   desk:  {code:'LED INFO DESK', dims:'90X90X47',  w:90, d:47, h:90,  fill:'#C4C4C4', key:'8', print:['s1','s2','s3']},
   banner:{code:'LED BANNER',    dims:'100X200',   w:100,d:35, h:200, fill:'#C4C4C4', key:'9', print:['s0','s2'], bar:8, foot:{w:5, at:[5,90], h:3}}
 };
 // Όψεις εκτύπωσης (τοπικά, πριν την περιστροφή): s0 = πίσω (y=0), s1 = δεξιά, s2 = ΜΠΡΟΣΤΑ (y=βάθος), s3 = αριστερά, top = πάνω.
 //  desk: μπροστά + 2 πλαϊνά (πίσω και πάνω δεν τυπώνονται) · banner: οι 2 μεγάλες όψεις
-//  cube/pylon: επιλογή ανά τεμάχιο el.top = 'print' (α: 5 πλευρές, default) ή 'melamine' (β: 4 πλευρές + μελαμίνη πάνω)
+//  cube/pylon/pylon300: επιλογή ανά τεμάχιο el.top = 'print' (α: 5 πλευρές, default) ή 'melamine' (β: 4 πλευρές + μελαμίνη πάνω)
 function printFaces(el){const p=PRODUCTS[el.type]; if(!p) return []; return p.topOption&&el.top!=='melamine'?[...p.print,'top']:p.print;}
 Object.entries(PRODUCTS).forEach(([k,p])=>{SYMBOX[k]=[p.w,p.d];});

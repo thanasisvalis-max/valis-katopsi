@@ -376,6 +376,7 @@ const HINTS={select:'Πάτα ένα στοιχείο για να το επιλ�
   conn:'Κλικ στο σημείο ένωσης των προφίλ.',
   store:'Σύρε ένα ορθογώνιο πάνω στην περιοχή της αποθήκης. Οι πλευρές της που πέφτουν στο όριο του περιπτέρου είναι η πίσω πλευρά.',
   cube:'Κλικ για LED CUBE 50×50×50. Γύρισέ το με R.', pylon:'Κλικ για LED PYLON 50×50, ύψος 100. Γύρισέ το με R.',
+  pylon300:'Κλικ για LED PYLON 70×70, ύψος 300. Γύρισέ το με R.',
   desk:'Κλικ για LED INFO DESK 90×47, ύψος 90. Γύρισέ το με R.', banner:'Κλικ για LED BANNER 100×200 με πόδια. Γύρισέ το με R.'};
 function renderTools(){
   document.querySelectorAll('#tools .tool').forEach(b=>b.setAttribute('aria-pressed',b.dataset.t===tool));
@@ -626,7 +627,7 @@ document.addEventListener('keydown',e=>{
   const k=e.key, mod=e.ctrlKey||e.metaKey;
   if(mod&&k.toLowerCase()==='z'){e.preventDefault();undo();return;}
   if(mod&&k.toLowerCase()==='d'){e.preventDefault();act('dup');return;}
-  const tk={v:'select',1:'p67',2:'p68',3:'door',4:'conn',5:'store',6:'cube',7:'pylon',8:'desk',9:'banner'}[k.toLowerCase()];
+  const tk={v:'select',1:'p67',2:'p68',3:'door',4:'conn',5:'store',6:'cube',7:'pylon',8:'desk',9:'banner',p:'pylon300'}[k.toLowerCase()];
   if(tk&&!mod){tool=tk;renderTools();renderPlan();return;}
   if(k==='+'||k==='='){zoomAt(1.3);return;}
   if(k==='-'){zoomAt(1/1.3);return;}
