@@ -464,7 +464,7 @@ function renderInspector(){
     const pr=PRODUCTS[el.type];
     h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${PRODUCTS[si.below.type].code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
     ${xy}
-    ${door?`${stButtons(el)}<div class="lbl">Φορά</div><div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
+    ${door?`${stButtons(el)}<div class="lbl">Φορά</div><div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. Σέρνεται ελεύθερα ανά 1 cm, χωρίς μαγνήτη (βελάκια: 1 cm, Shift: 10 cm). «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
   }
   box.innerHTML=`<div class="lbl">Επιλεγμένο στοιχείο</div>`+h;
@@ -553,7 +553,9 @@ svg.addEventListener('pointermove',e=>{
     const il=$('i-len'); if(il) il.value=n(len); return;}
   if(drag){const el=byId(sel); if(!el)return;
     // ο μαγνήτης δουλεύει στο εξωτερικό κουτί (bbox). Σε στοιχείο υπό γωνία η αρχή του διαφέρει από τη γωνία του κουτιού
-    const s=snapBox({x:drag.bx+p.x-drag.sx,y:drag.by+p.y-drag.sy,w:drag.bw,h:drag.bh},el.id,e.altKey);
+    // Η πόρτα κινείται ελεύθερα: χωρίς μαγνήτη, ανά 1 cm (απόφαση 2026-10-31). Τα υπόλοιπα με μαγνήτη (Alt = ελεύθερα).
+    const nb={x:drag.bx+p.x-drag.sx,y:drag.by+p.y-drag.sy,w:drag.bw,h:drag.bh};
+    const s=el.type==='door'?{x:Math.round(nb.x),y:Math.round(nb.y),gx:null,gy:null}:snapBox(nb,el.id,e.altKey);
     el.x=n(drag.ox+s.x-drag.bx); el.y=n(drag.oy+s.y-drag.by); guides={x:s.gx,y:s.gy}; drag.moved=true; renderPlan();
     const ix=$('i-x'),iy=$('i-y'); if(ix){ix.value=n(el.x);iy.value=n(el.y);} }
   else if(drawing){
@@ -658,7 +660,7 @@ document.addEventListener('keydown',e=>{
   if(k==='r'||k==='R'){act('rot');return;}
   if(k==='f'||k==='F'){act('flip');return;}
   if(k==='i'||k==='I'){act('inv');return;}
-  const st=S.snap*(e.shiftKey?10:1), mv={ArrowLeft:[-st,0],ArrowRight:[st,0],ArrowUp:[0,-st],ArrowDown:[0,st]}[k];
+  const st=(el.type==='door'?1:S.snap)*(e.shiftKey?10:1), mv={ArrowLeft:[-st,0],ArrowRight:[st,0],ArrowUp:[0,-st],ArrowDown:[0,st]}[k];
   if(mv){e.preventDefault();el.x=n(el.x+mv[0]);el.y=n(el.y+mv[1]);commit();renderAll();}
 });
 
