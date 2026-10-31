@@ -147,3 +147,5 @@ body.v3d-open{overflow:hidden}
 .pill.st-mod{background:#B8960C;color:#fff}
 .st-seg button.st-new[aria-pressed="true"]{background:#8CCB7E;border-color:#3E8E3A;color:#123A10}
 .st-seg button.st-mod[aria-pressed="true"]{background:#F4D35E;border-color:#B8960C;color:#3B2C00}
+.pill.st-size{background:#2B88C2;color:#fff}
+.st-seg button.st-size[aria-pressed="true"]{background:#8FD3F4;border-color:#2B88C2;color:#0B3A57}

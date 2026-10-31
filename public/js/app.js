@@ -235,7 +235,7 @@ const GL={'Α':[[[0,1],[.35,0],[.7,1]],[[.13,.62],[.57,.62]]],'Π':[[[0,1],[0,0]
   'Ι':[[[.35,0],[.35,1]]],'Ν':[[[0,1],[0,0],[.7,1],[.7,0]]],'Υ':[[[0,0],[.35,.5],[.7,0]],[[.35,.5],[.35,1]]],
   'Ρ':[[[0,1],[0,0],[.5,0],[.7,.13],[.7,.37],[.5,.5],[0,.5]]],'Γ':[[[0,1],[0,0],[.7,0]]],'Λ':[[[0,1],[.35,0],[.7,1]]],
   'Σ':[[[.7,0],[0,0],[.35,.5],[0,1],[.7,1]]],'Μ':[[[0,1],[0,0],[.35,.55],[.7,0],[.7,1]]],
-  'Ε':[[[.7,0],[0,0],[0,1],[.7,1]],[[0,.5],[.55,.5]]],'Τ':[[[0,0],[.7,0]],[[.35,0],[.35,1]]]};
+  'Ε':[[[.7,0],[0,0],[0,1],[.7,1]],[[0,.5],[.55,.5]]],'Τ':[[[0,0],[.7,0]],[[.35,0],[.35,1]]],'Δ':[[[0,1],[.35,0],[.7,1],[0,1]]]};
 function strokeText(P,cx,cy,str,h,col){
   const adv=.98, tw=(str.length*adv-.28)*h; let x0=cx-tw/2; const y0=cy-h/2;
   [...str].forEach((ch,i)=>(GL[ch]||[]).forEach(s=>P.pline(s.map(([x,y])=>[x0+i*adv*h+x*h,y0+y*h]),col,h*.1)));
@@ -445,7 +445,7 @@ function renderInspector(){
     <label class="field"><span>Τύπος</span><select id="i-type"><option value="p67"${el.type==='p67'?' selected':''}>PRF0067 · 15 cm</option><option value="p68"${el.type==='p68'?' selected':''}>PRF0068 · 4,5 cm</option></select></label></div>
     ${el.type==='p67'&&el.len>WARN67?`<label class="check"><input type="checkbox" id="i-keep"${el.keepWhole?' checked':''}> Μονοκόμματο πλαίσιο (χωρίς πρόταση χωρισμού)</label>`:''}
     ${xy}
-    <div class="lbl">Κατάσταση πλαισίου</div><div class="seg st-seg"><button data-act="st" data-v="" aria-pressed="${!el.st}">Υπάρχον</button><button data-act="st" data-v="new" class="st-new" aria-pressed="${el.st==='new'}">Καινούργιο</button><button data-act="st" data-v="mod" class="st-mod" aria-pressed="${el.st==='mod'}">Μετατροπή</button></div>
+    <div class="lbl">Κατάσταση πλαισίου</div><div class="seg st-seg"><button data-act="st" data-v="" aria-pressed="${!el.st}">Υπάρχον</button><button data-act="st" data-v="new" class="st-new" aria-pressed="${el.st==='new'}">Καινούργιο</button><button data-act="st" data-v="mod" class="st-mod" aria-pressed="${el.st==='mod'}">Μετατροπή</button><button data-act="st" data-v="size" class="st-size" aria-pressed="${el.st==='size'}">Αλλαγή διάστασης</button></div>
     <div class="lbl">Διάσταση</div><div class="seg"><button data-act="dim" data-v="a" aria-pressed="${el.dim==='a'}">${H?'Πάνω':'Αριστερά'}</button><button data-act="dim" data-v="b" aria-pressed="${el.dim==='b'}">${H?'Κάτω':'Δεξιά'}</button><button data-act="dim" data-v="none" aria-pressed="${el.dim==='none'}">Καμία</button></div>
     ${el.type==='p67'?`<label class="check"><input type="checkbox" id="i-led"${lit(el)?' checked':''}${back?' disabled':''}> Με φωτισμό LED</label>${back?'<p class="note">Πίσω πλευρά αποθήκης: μόνο μη φωτιζόμενο.</p>':''}`:''}
     ${acts}`;
