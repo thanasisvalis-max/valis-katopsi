@@ -35,15 +35,16 @@ function parts(){
       const b=bbox(el); out.push({name:'CONN',quad:rect(b.x,b.y,b.w,b.h),z0:0,z1:H,face:all('alu')});
     } else if(el.type==='door') out.push(...doorPieces(el));
     else if(isProd(el)){
-      const pr=PRODUCTS[el.type], tf=tfOf(el), z0=canStack(el)?(STK[el.id]||{base:0}).base:0;
+      const pr=pdef(el), tf=tfOf(el), z0=canStack(el)?(STK[el.id]||{base:0}).base:0;
       prodRects(el).forEach(([x,y,w,d,role])=>{
         const q=[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf);
         if(role==='foot') out.push({name:`${pr.code.replace(/ /g,'_')}_PODI`,quad:q,z0:0,z1:pr.foot.h,face:all('alu')});
-        else out.push({name:`${pr.code.replace(/ /g,'_')}_${pr.dims}`,el:el.id,prod:true,quad:q,z0,z1:z0+pr.h,
-          face:(tag,n)=>{const pf=printFaces(el);
+        else { const tint=pr.custom?'c_'+pr.fill.replace('#',''):null, T=m=>tint&&(m==='graphic'||m==='frame')?tint:m; // custom: το χρώμα του στοιχείου
+          out.push({name:`${latin(pr.code).replace(/ /g,'_')}_${pr.dims}`,el:el.id,prod:true,quad:q,z0,z1:z0+pr.h,
+          face:(tag,n)=>T(((tag,n)=>{const pf=printFaces(el);
             if(tag==='top') return pf.includes('top')?'graphic':el.top==='melamine'?'melamine':'frame';
             if(tag!=='side') return 'frame';
-            const pp={quad:q}; for(let i=0;i<4;i++){const f=prodFace(pp,i); if(n[0]*f.n[0]+n[2]*f.n[1]>.9) return pf.includes('s'+i)?'graphic':'frame';} return 'frame';}});
+            const pp={quad:q}; for(let i=0;i<4;i++){const f=prodFace(pp,i); if(n[0]*f.n[0]+n[2]*f.n[1]>.9) return pf.includes('s'+i)?'graphic':'frame';} return 'frame';})(tag,n))}); }
       });
     }
   });
@@ -69,7 +70,7 @@ function doorPieces(el){
   return out;
 }
 // σώμα προϊόντος LED (χωρίς πόδια) και οι 4 κάθετες όψεις του
-const parts1=el=>{const pr=PRODUCTS[el.type], tf=tfOf(el), r=prodRects(el).find(o=>o[4]==='body'); if(!r) return null;
+const parts1=el=>{const pr=pdef(el), tf=tfOf(el), r=prodRects(el).find(o=>o[4]==='body'); if(!r) return null;
   const z0=canStack(el)?stackInfo()[el.id].base:0, [x,y,w,d]=r; return {quad:[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf),z0,z1:z0+pr.h};};
 function prodFace(p,i){
   const q=p.quad, e1=q[i], e2=q[(i+1)%4], cx=q.reduce((s,v)=>s+v[0],0)/4, cy=q.reduce((s,v)=>s+v[1],0)/4;
@@ -99,7 +100,7 @@ function prismTris(p){
     return {t,mat:p.face(tag,n)};
   });
 }
-const colorOf=m=>m==='graphic'?gfxColor():D3.colors[m];
+const colorOf=m=>m==='graphic'?gfxColor():String(m).startsWith('c_')?'#'+m.slice(2):D3.colors[m];
 
 /* ---------- 2. Επιφάνειες για γραφικά ----------
    Κλειδί επιφάνειας: '<id στοιχείου>:in' (εσωτερική όψη), '<id>:out' (εξωτερική), 'floor' (δάπεδο),
@@ -112,7 +113,7 @@ function surface(key){
     c:[[0,OFF,S.D],[S.W,OFF,S.D],[S.W,OFF,0],[0,OFF,0]],n:[0,1,0]};
   const [id,side,dside]=key.split(':'), el=S.els.find(e=>e.id===id); if(!el) return null;
   if(isProd(el)){
-    const p=parts1(el), pr=PRODUCTS[el.type]; if(!p) return null;
+    const p=parts1(el), pr=pdef(el); if(!p) return null;
     const xs=p.quad.map(q=>q[0]), ys=p.quad.map(q=>q[1]), x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
     if(!printFaces(el).includes(side)) return null; // η όψη δεν τυπώνεται
     if(side==='top'){ const z=p.z1+OFF;
@@ -180,7 +181,7 @@ function toDAE(list,gfx){
   });
   const mats=[...used];
   const fx=mats.map(m=>`<effect id="fx-${m}"><profile_COMMON><technique sid="common"><lambert><diffuse><color>${hex(colorOf(m))} 1</color></diffuse></lambert></technique></profile_COMMON></effect>`).join('')+fxT;
-  const ml=mats.map(m=>`<material id="mat-${m}" name="${DAE_NAME[m]||m}"><instance_effect url="#fx-${m}"/></material>`).join('')+mlT;
+  const ml=mats.map(m=>`<material id="mat-${m}" name="${DAE_NAME[m]||(String(m).startsWith('c_')?'XROMA_'+m.slice(2):m)}"><instance_effect url="#fx-${m}"/></material>`).join('')+mlT;
   const now=new Date().toISOString();
   return `<?xml version="1.0" encoding="utf-8"?>
 <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1"><asset><contributor><authoring_tool>Valis Frames Katopsi</authoring_tool></contributor><created>${now}</created><modified>${now}</modified><unit name="centimeter" meter="0.01"/><up_axis>Z_UP</up_axis></asset>
@@ -203,6 +204,8 @@ function outline(geo,mat,angle=20){
 }
 function buildModel(list,mats){
   const g=new THREE.Group(), order=['graphic','melamine','frame','alu','door','floor'];
+  list.forEach(p=>prismTris(p).forEach(o=>{ if(!order.includes(o.mat)){ order.push(o.mat); // χρώματα custom στοιχείων
+    mats[o.mat]=mats[o.mat]||new THREE.MeshLambertMaterial({color:colorOf(o.mat),polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}); } }));
   list.forEach(p=>{
     const tris=prismTris(p).sort((a,b)=>order.indexOf(a.mat)-order.indexOf(b.mat));
     const pos=tris.flatMap(o=>o.t.flat()).map(v=>v/100); // cm → m

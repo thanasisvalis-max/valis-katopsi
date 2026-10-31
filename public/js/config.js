@@ -22,7 +22,7 @@ const STATUS={
   size:{name:'Αλλαγή διάστασης', label:'ΑΛΛΑΓΗ ΔΙΑΣΤΑΣΗΣ', L:'#8FD3F4', Dk:'#2B88C2', for:['prof']},
   rent:{name:'Ενοίκιο', label:'ΕΝΟΙΚΙΟ', L:'#F6B072', Dk:'#C9661A', for:['prof','prod']},
   swap:{name:'Αλλαγή φοράς πόρτας', short:'Αλλαγή φοράς', label:'ΑΛΛΑΓΗ ΦΟΡΑΣ ΠΟΡΤΑΣ', L:'#C9A6E4', Dk:'#7D3C98', for:['door']}};
-const stKind=el=>!el?null:el.type==='door'?'door':(el.type==='p67'||el.type==='p68')?'prof':PRODUCTS[el.type]?'prod':null;
+const stKind=el=>!el?null:el.type==='door'?'door':(el.type==='p67'||el.type==='p68')?'prof':pdef(el)?'prod':null;
 
 // Σταθερά σύμβολα: πόρτα 105×62, σύνδεσμος 5×5
 const SYMBOX={door:[105,62],conn:[5,5]};
@@ -61,5 +61,17 @@ const PRODUCTS={
 // Όψεις εκτύπωσης (τοπικά, πριν την περιστροφή): s0 = πίσω (y=0), s1 = δεξιά, s2 = ΜΠΡΟΣΤΑ (y=βάθος), s3 = αριστερά, top = πάνω.
 //  desk: μπροστά + 2 πλαϊνά (πίσω και πάνω δεν τυπώνονται) · banner: οι 2 μεγάλες όψεις
 //  cube/pylon/pylon300: επιλογή ανά τεμάχιο el.top = 'print' (α: 5 πλευρές, default) ή 'melamine' (β: 4 πλευρές + μελαμίνη πάνω)
-function printFaces(el){const p=PRODUCTS[el.type]; if(!p) return []; return p.topOption&&el.top!=='melamine'?[...p.print,'top']:p.print;}
+// Custom στοιχείο (π.χ. πάγκος): ορθογώνιο με όνομα και δικές του διαστάσεις. {type:'custom', x, y, w, d, h, rot, name, fill?, top?, st?}
+//  Συμπεριφέρεται όπως ένα προϊόν LED (περιστροφή, μαγνήτης, 3D, γραφικά στις 4 πλευρές + πάνω, λίστα υλικών).
+const CUSTOM={name:'ΠΑΓΚΟΣ', w:200, d:60, h:100, fill:'#D9D2C3', min:10,
+  colors:['#D9D2C3','#C4C4C4','#9B9796','#FFFFFF','#B7C9D6','#D7B9A3','#2B2A29']};
+const dimS=v=>String(Math.round(v*10)/10).replace('.',',');
+// Ορισμός «προϊόντος» για οποιοδήποτε στοιχείο: τα LED από τον κατάλογο, το custom από τα δικά του πεδία
+function pdef(el){
+  if(!el) return null;
+  if(el.type==='custom') return {code:(el.name||CUSTOM.name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(), dims:`${dimS(el.w)}X${dimS(el.d)}X${dimS(el.h)}`,
+    w:el.w, d:el.d, h:el.h, fill:el.fill||CUSTOM.fill, print:['s0','s1','s2','s3'], topOption:true, custom:true};
+  return PRODUCTS[el.type]||null;
+}
+function printFaces(el){const p=pdef(el); if(!p) return []; return p.topOption&&el.top!=='melamine'?[...p.print,'top']:p.print;}
 Object.entries(PRODUCTS).forEach(([k,p])=>{SYMBOX[k]=[p.w,p.d];});
