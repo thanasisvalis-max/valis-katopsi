@@ -113,10 +113,8 @@ function freeEnds(el){
 }
 function storeBackSides(st){
   const s=[], tol=2;
+  // Μόνο η πίσω πλευρά (πάνω στο πίσω όριο του περιπτέρου, y = 0). Οι πλαϊνές πλευρές παίρνουν ελεύθερα PRF0067 με LED (απόφαση 2026-10-31).
   if(st.y<=tol) s.push({ax:'h',c:0,a:st.x,b:st.x+st.w,in:1});
-  if(st.y+st.h>=S.D-tol) s.push({ax:'h',c:S.D,a:st.x,b:st.x+st.w,in:-1});
-  if(st.x<=tol) s.push({ax:'v',c:0,a:st.y,b:st.y+st.h,in:1});
-  if(st.x+st.w>=S.W-tol) s.push({ax:'v',c:S.W,a:st.y,b:st.y+st.h,in:-1});
   return s;
 }
 function onStoreBack(p){
@@ -388,7 +386,7 @@ const HINTS={select:'Πάτα ένα στοιχείο για να το επιλ�
   p68:'Σύρε για να σχεδιάσεις τοίχο. Οι άκρες κολλάνε με μαγνήτη στα διπλανά πλαίσια.',
   door:'Κλικ στο σημείο της πόρτας. Γύρισέ τη με R ή άλλαξε πλευρά με F.',
   conn:'Κλικ στο σημείο ένωσης των προφίλ.',
-  store:'Σύρε ένα ορθογώνιο πάνω στην περιοχή της αποθήκης. Οι πλευρές της που πέφτουν στο όριο του περιπτέρου είναι η πίσω πλευρά.',
+  store:'Σύρε ένα ορθογώνιο πάνω στην περιοχή της αποθήκης. Η πλευρά της πάνω στο πίσω όριο του περιπτέρου είναι η πίσω πλευρά (χωρίς LED). Οι πλαϊνές παίρνουν και 15 cm με LED.',
   cube:'Κλικ για LED CUBE 50×50×50. Γύρισέ το με R.', pylon:'Κλικ για LED PYLON 50×50, ύψος 100. Γύρισέ το με R.',
   pylon300:'Κλικ για LED PYLON 70×70, ύψος 300. Γύρισέ το με R.',
   desk:'Κλικ για LED INFO DESK 90×47, ύψος 90. Γύρισέ το με R.', banner:'Κλικ για LED BANNER 100×200 με πόδια. Γύρισέ το με R.'};
@@ -453,7 +451,7 @@ function renderInspector(){
     h=`<div class="selhead"><b>Αποθήκη</b><span class="code">ΠΕΡΙΟΧΗ</span></div>
     ${xy}
     <div class="row"><label class="field"><span>Πλάτος (cm)</span><input id="i-w" type="number" min="20" step="${S.snap}" value="${n(el.w)}"></label><label class="field"><span>Βάθος (cm)</span><input id="i-h" type="number" min="20" step="${S.snap}" value="${n(el.h)}"></label></div>
-    <p class="note">Οι πλευρές της αποθήκης πάνω στο όριο του περιπτέρου είναι η πίσω πλευρά. Εκεί μπαίνουν πάντα μη φωτιζόμενα πλαίσια.</p>
+    <p class="note">Η πλευρά της αποθήκης πάνω στο πίσω όριο του περιπτέρου είναι η πίσω πλευρά: εκεί μπαίνουν πάντα μη φωτιζόμενα πλαίσια. Στις πλαϊνές πλευρές μπαίνει ελεύθερα και PRF0067 με LED.</p>
     ${acts}`;
   } else {
     const door=el.type==='door';
