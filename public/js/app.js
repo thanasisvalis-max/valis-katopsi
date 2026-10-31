@@ -266,7 +266,8 @@ function prodRects(el){
 const tfOf=el=>{const m=symMatrix(el).m; return ([x,y])=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];};
 function drawProd(P,el){
   const p=PRODUCTS[el.type], tf=tfOf(el);
-  prodRects(el).forEach(([x,y,w,h])=>P.polyS([[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(tf),p.fill,C.S,.25));
+  const st=STATUS[el.st], fill=st?st.L:p.fill;
+  prodRects(el).forEach(([x,y,w,h])=>P.polyS([[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(tf),fill,C.S,.25));
   if(el.type==='desk'){const f=[[1.5,p.d-1.2],[p.w-1.5,p.d-1.2]].map(tf); P.line(f[0][0],f[0][1],f[1][0],f[1][1],'#17202A',1.6);} // μπροστινή όψη
   // κείμενο παράλληλο στο πλάτος του προϊόντος, πάντα ευανάγνωστο (−90°..90°)
   const [cx,cy]=tf([p.w/2,p.d/2]), ta=((normAng(el.rot||0)+90)%180)-90, L=p.w;
@@ -409,7 +410,7 @@ function bomRows(){
     else if(e.type==='door'){code='DOOR';desc=`Πόρτα ${DOOR.w}×${S.H} · εκτυπώσεις: φύλλο ${String(DOOR.leafW).replace('.',',')}×${String(DOOR.leafH).replace('.',',')}, πλαϊνό ${DOOR.side}×${DOOR.sideH}, κορωνίδα ${DOOR.w}×${Math.max(0,S.H-DOOR.sideH)}`;st=e.st||''; key='door'+st;}
     else if(isProd(e)){const p=PRODUCTS[e.type]; code=p.code;
       const pt=e.type==='banner'?'εκτύπωση 2 όψεις':e.type==='desk'?'εκτύπωση μπροστά + 2 πλαϊνά':e.top==='melamine'?'4 πλευρές εκτύπωση + μελαμίνη πάνω':'5 πλευρές εκτύπωση';
-      desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; key=e.type+(e.top==='melamine'?'-m':'');}
+      desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; st=e.st||''; key=e.type+(e.top==='melamine'?'-m':'')+st;}
     else {code='CONN';desc='Σύνδεσμος προφίλ';key='conn';}
     g[key]=g[key]||{code,desc,len,st,qty:0}; g[key].qty++;});
   return Object.values(g).sort((a,b)=>a.code.localeCompare(b.code)||(a.st||'').localeCompare(b.st||'')||a.desc.localeCompare(b.desc)||(b.len||0)-(a.len||0));
@@ -431,7 +432,7 @@ function renderRules(){
 // Κουμπιά κατάστασης (πλαίσιο ή πόρτα), από το STATUS του config.js
 function stButtons(el){
   const k=stKind(el); if(!k) return ''; const door=k==='door';
-  return `<div class="lbl">Κατάσταση ${door?'πόρτας':'πλαισίου'}</div><div class="seg st-seg"><button data-act="st" data-v="" aria-pressed="${!el.st}">${door?'Υπάρχουσα':'Υπάρχον'}</button>`+
+  return `<div class="lbl">Κατάσταση ${door?'πόρτας':k==='prod'?'προϊόντος':'πλαισίου'}</div><div class="seg st-seg"><button data-act="st" data-v="" aria-pressed="${!el.st}">${door?'Υπάρχουσα':'Υπάρχον'}</button>`+
     Object.entries(STATUS).filter(([,s])=>s.for.includes(k)).map(([v,s])=>`<button data-act="st" data-v="${v}" class="st-${v}" aria-pressed="${el.st===v}">${door?(s.doorName||s.short||s.name):s.name}</button>`).join('')+'</div>';
 }
 function renderInspector(){
@@ -462,7 +463,7 @@ function renderInspector(){
   } else {
     const door=el.type==='door';
     const pr=PRODUCTS[el.type];
-    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${PRODUCTS[si.below.type].code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
+    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>${stButtons(el)}`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${PRODUCTS[si.below.type].code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
     ${xy}
     ${door?`${stButtons(el)}<div class="lbl">Φορά</div><div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. Σέρνεται ελεύθερα ανά 1 cm, χωρίς μαγνήτη (βελάκια: 1 cm, Shift: 10 cm). «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
@@ -685,7 +686,7 @@ function exportSVG(){
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 ${S.W+100} ${S.D+100}" width="${(S.W+100)*10/sc}mm" height="${(S.D+100)*10/sc}mm"><rect x="-50" y="-50" width="${S.W+100}" height="${S.D+100}" fill="#FFFFFF"/>${P.out()}</svg>`;
 }
 function exportCSV(){
-  return '﻿Κωδικός;Περιγραφή;Κατάσταση;Πλάτος πλαισίου (cm);Ύψος (cm);Τεμάχια\n'+bomRows().map(r=>[r.code,r.desc,r.len===''&&r.code!=='DOOR'?'':(STATUS[r.st]?(r.code==='DOOR'&&STATUS[r.st].doorName||STATUS[r.st].name):(r.code==='DOOR'?'Υπάρχουσα':'Υπάρχον')),r.len===''?'':String(r.len).replace('.',','),r.len===''?'':S.H,r.qty].join(';')).join('\n');
+  return '﻿Κωδικός;Περιγραφή;Κατάσταση;Πλάτος πλαισίου (cm);Ύψος (cm);Τεμάχια\n'+bomRows().map(r=>[r.code,r.desc,r.code==='CONN'?'':(STATUS[r.st]?(r.code==='DOOR'&&STATUS[r.st].doorName||STATUS[r.st].name):(r.code==='DOOR'?'Υπάρχουσα':'Υπάρχον')),r.len===''?'':String(r.len).replace('.',','),r.len===''?'':S.H,r.qty].join(';')).join('\n');
 }
 // Ονόματα αρχείων σε λατινικά κεφαλαία (όπως τα αρχεία Corel: ATHANASIADIS_KATOPSI). Κάποιοι browsers χαλάνε ελληνικά ονόματα.
 const GR2L={α:'a',ά:'a',β:'v',γ:'g',δ:'d',ε:'e',έ:'e',ζ:'z',η:'i',ή:'i',θ:'th',ι:'i',ί:'i',ϊ:'i',ΐ:'i',κ:'k',λ:'l',μ:'m',ν:'n',ξ:'x',ο:'o',ό:'o',π:'p',ρ:'r',σ:'s',ς:'s',τ:'t',υ:'y',ύ:'y',ϋ:'y',ΰ:'y',φ:'f',χ:'ch',ψ:'ps',ω:'o',ώ:'o'};

@@ -14,14 +14,15 @@ const PROF={
   p68:{t:5,code:'PRF0068',name:'Προφίλ 4,5 cm',strips:[[0,2.1,0],[2.1,2.9,1],[2.9,5,0]]}};
 
 // Κατάσταση πλαισίου / πόρτας (χρώμα στην κάτοψη/PDF, στήλη στη λίστα υλικών). Χωρίς el.st = υπάρχον (γκρι).
-//  for = σε ποια στοιχεία εμφανίζεται: prof = PRF0067/PRF0068, door = πόρτα.
+//  for = σε ποια στοιχεία εμφανίζεται: prof = PRF0067/PRF0068, door = πόρτα, prod = προϊόντα LED (cube, pylon, pylon300, desk, banner).
 //  new = καινούργιο πλαίσιο (πράσινο) · mod = μετατροπή υπάρχοντος (κίτρινο) · size = αλλαγή διάστασης (γαλάζιο). L/Dk = ανοιχτή/σκούρα στρώση του προφίλ.
 const STATUS={
-  new:{name:'Καινούργιο', doorName:'Καινούργια', label:'ΚΑΙΝΟΥΡΓΙΟ', L:'#8CCB7E', Dk:'#3E8E3A', for:['prof','door']},
+  new:{name:'Καινούργιο', doorName:'Καινούργια', label:'ΚΑΙΝΟΥΡΓΙΟ', L:'#8CCB7E', Dk:'#3E8E3A', for:['prof','door','prod']},
   mod:{name:'Μετατροπή',  label:'ΜΕΤΑΤΡΟΠΗ',          L:'#F4D35E', Dk:'#B8960C', for:['prof','door']},
   size:{name:'Αλλαγή διάστασης', label:'ΑΛΛΑΓΗ ΔΙΑΣΤΑΣΗΣ', L:'#8FD3F4', Dk:'#2B88C2', for:['prof']},
+  rent:{name:'Ενοίκιο', label:'ΕΝΟΙΚΙΟ', L:'#F6B072', Dk:'#C9661A', for:['prof','prod']},
   swap:{name:'Αλλαγή φοράς πόρτας', short:'Αλλαγή φοράς', label:'ΑΛΛΑΓΗ ΦΟΡΑΣ ΠΟΡΤΑΣ', L:'#C9A6E4', Dk:'#7D3C98', for:['door']}};
-const stKind=el=>el&&el.type==='door'?'door':(el&&(el.type==='p67'||el.type==='p68')?'prof':null);
+const stKind=el=>!el?null:el.type==='door'?'door':(el.type==='p67'||el.type==='p68')?'prof':PRODUCTS[el.type]?'prod':null;
 
 // Σταθερά σύμβολα: πόρτα 105×62, σύνδεσμος 5×5
 const SYMBOX={door:[105,62],conn:[5,5]};
