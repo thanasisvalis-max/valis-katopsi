@@ -196,8 +196,8 @@ function svgPainter(inline){
     polyS(p,f,s,sw){o+=`<polygon points="${p.map(q=>n(q[0])+','+n(q[1])).join(' ')}" ${a(f,s,sw)}/>`;},
     push(ang,ox,oy){o+=`<g transform="rotate(${n(ang)} ${n(ox)} ${n(oy)})">`;},
     pop(){o+='</g>';},
-    sym(name,m){
-      if(inline) o+=`<g transform="matrix(${m.map(n).join(' ')})">`+SYM[name].map(p=>`<path d="${p.d}" ${a(p.f,p.s,p.w)}/>`).join('')+'</g>';
+    sym(name,m,rc){
+      if(inline||rc) o+=`<g transform="matrix(${m.map(n).join(' ')})">`+SYM[name].map(p=>`<path d="${p.d}" ${a(rc&&rc[p.f]||p.f,p.s,p.w)}/>`).join('')+'</g>';
       else o+=`<use href="#sym-${name}" transform="matrix(${m.map(n).join(' ')})"/>`;},
     // rot: true = κάθετο (−90°) ή αριθμός μοιρών
     text(x,y,t,size,f,rot){const g=rot===true?-90:(+rot||0); o+=`<text x="${n(x)}" y="${n(y)}" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="${n(size)}" fill="${f}" text-anchor="middle" dominant-baseline="central"${g?` transform="rotate(${n(g)} ${n(x)} ${n(y)})"`:''}>${t}</text>`;},
@@ -220,7 +220,7 @@ function pdfPainter(){
     polyS(p,f,s,sw){const [c,op]=paint(f,s,sw);o+=`${c}${p.map((q,i)=>`${n(q[0])} ${n(q[1])} ${i?'l':'m'}`).join(' ')} h ${op}\n`;},
     push(ang,ox,oy){const m=ROTM(ang), c=m[0], s=m[1]; o+=`q ${n(c)} ${n(s)} ${n(-s)} ${n(c)} ${n(ox-c*ox+s*oy)} ${n(oy-s*ox-c*oy)} cm\n`;},
     pop(){o+='Q\n';},
-    sym(name,m){o+=`q ${m.map(n).join(' ')} cm\n`;SYM[name].forEach(p=>{const [c,op]=paint(p.f,p.s,p.w);o+=`${c}${p.p} ${op}\n`;});o+='Q\n';},
+    sym(name,m,rc){o+=`q ${m.map(n).join(' ')} cm\n`;SYM[name].forEach(p=>{const [c,op]=paint(rc&&rc[p.f]||p.f,p.s,p.w);o+=`${c}${p.p} ${op}\n`;});o+='Q\n';},
     text(x,y,t,size,f,rot){const w=textW(t,size), m=ROTM(rot===true?-90:(+rot||0)), c=m[0], s=m[1];
       const sx=x+c*(-w/2)-s*(size*.35), sy=y+s*(-w/2)+c*(size*.35);
       o+=`BT /F1 ${n(size)} Tf ${rgb(f)} rg ${n(c)} ${n(s)} ${n(s)} ${n(-c)} ${n(sx)} ${n(sy)} Tm (${t}) Tj ET\n`;},
@@ -233,7 +233,7 @@ const GL={'Α':[[[0,1],[.35,0],[.7,1]],[[.13,.62],[.57,.62]]],'Π':[[[0,1],[0,0]
   'Ι':[[[.35,0],[.35,1]]],'Ν':[[[0,1],[0,0],[.7,1],[.7,0]]],'Υ':[[[0,0],[.35,.5],[.7,0]],[[.35,.5],[.35,1]]],
   'Ρ':[[[0,1],[0,0],[.5,0],[.7,.13],[.7,.37],[.5,.5],[0,.5]]],'Γ':[[[0,1],[0,0],[.7,0]]],'Λ':[[[0,1],[.35,0],[.7,1]]],
   'Σ':[[[.7,0],[0,0],[.35,.5],[0,1],[.7,1]]],'Μ':[[[0,1],[0,0],[.35,.55],[.7,0],[.7,1]]],
-  'Ε':[[[.7,0],[0,0],[0,1],[.7,1]],[[0,.5],[.55,.5]]],'Τ':[[[0,0],[.7,0]],[[.35,0],[.35,1]]],'Δ':[[[0,1],[.35,0],[.7,1],[0,1]]]};
+  'Ε':[[[.7,0],[0,0],[0,1],[.7,1]],[[0,.5],[.55,.5]]],'Τ':[[[0,0],[.7,0]],[[.35,0],[.35,1]]],'Δ':[[[0,1],[.35,0],[.7,1],[0,1]]],'Φ':[ell(.35,.5,.33,.27),[[.35,0],[.35,1]]]};
 function strokeText(P,cx,cy,str,h,col){
   const adv=.98, tw=(str.length*adv-.28)*h; let x0=cx-tw/2; const y0=cy-h/2;
   [...str].forEach((ch,i)=>(GL[ch]||[]).forEach(s=>P.pline(s.map(([x,y])=>[x0+i*adv*h+x*h,y0+y*h]),col,h*.1)));
@@ -242,7 +242,7 @@ function strokeText(P,cx,cy,str,h,col){
 /* ---------- drawing ---------- */
 // Υπόμνημα κατάστασης πλαισίων κάτω από το περίπτερο (μόνο όσες καταστάσεις υπάρχουν). Γράμματα με γραμμές: δουλεύουν και στο PDF.
 function drawLegend(P,D){
-  const used=Object.keys(STATUS).filter(k=>S.els.some(e=>isProf(e)&&e.st===k)); if(!used.length) return;
+  const used=Object.keys(STATUS).filter(k=>S.els.some(e=>stKind(e)&&e.st===k)); if(!used.length) return;
   const h=5, y=D+40, tw=k=>(STATUS[k].label.length*.98-.28)*h;
   let x=S.W-used.reduce((t,k)=>t+h*3.2+tw(k),0)-h*4*(used.length-1); // στοίχιση δεξιά, μακριά από τις διαστάσεις κάτω αριστερά
   used.forEach(k=>{const s=STATUS[k], tw=(s.label.length*.98-.28)*h;
@@ -303,7 +303,7 @@ function stackSnap(el){
   const lv=stackInfo()[el.id]; toast(`Μπήκε πάνω σε ${PRODUCTS[best.type].code} · στοίβα ${lv.level+1} τεμαχίων, βάση στα ${fmt(lv.base)} cm.`);
   return true;
 }
-function drawEl(P,el){ if(isProf(el)) drawProfile(P,el); else if(isProd(el)) drawProd(P,el); else P.sym(el.type,symMatrix(el).m); }
+function drawEl(P,el){ if(isProf(el)) drawProfile(P,el); else if(isProd(el)) drawProd(P,el); else { const st=el.type==='door'&&STATUS[el.st]; P.sym(el.type,symMatrix(el).m,st?{[C.L]:st.L,[C.Dk]:st.Dk}:null); } }
 function drawStore(P,st,preview){
   if(preview) P.rect(st.x,st.y,st.w,st.h,'#EEF3FB','#8C98A6',.6,' stroke-dasharray="4 3" vector-effect="non-scaling-stroke"');
   const h=Math.max(6,Math.min(14,st.w/7.5,st.h/2.5));
@@ -406,7 +406,7 @@ function bomRows(){
     if(e.type==='store') return;
     if(isProf(e)){code=PROF[e.type].code; len=e.len;
       desc=e.type==='p67'?(lit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'; st=e.st||''; key=code+desc+len+st;}
-    else if(e.type==='door'){code='DOOR';desc=`Πόρτα ${DOOR.w}×${S.H} · εκτυπώσεις: φύλλο ${String(DOOR.leafW).replace('.',',')}×${String(DOOR.leafH).replace('.',',')}, πλαϊνό ${DOOR.side}×${DOOR.sideH}, κορωνίδα ${DOOR.w}×${Math.max(0,S.H-DOOR.sideH)}`;key='door';}
+    else if(e.type==='door'){code='DOOR';desc=`Πόρτα ${DOOR.w}×${S.H} · εκτυπώσεις: φύλλο ${String(DOOR.leafW).replace('.',',')}×${String(DOOR.leafH).replace('.',',')}, πλαϊνό ${DOOR.side}×${DOOR.sideH}, κορωνίδα ${DOOR.w}×${Math.max(0,S.H-DOOR.sideH)}`;st=e.st||''; key='door'+st;}
     else if(isProd(e)){const p=PRODUCTS[e.type]; code=p.code;
       const pt=e.type==='banner'?'εκτύπωση 2 όψεις':e.type==='desk'?'εκτύπωση μπροστά + 2 πλαϊνά':e.top==='melamine'?'4 πλευρές εκτύπωση + μελαμίνη πάνω':'5 πλευρές εκτύπωση';
       desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; key=e.type+(e.top==='melamine'?'-m':'');}
@@ -428,6 +428,12 @@ function renderRules(){
   $('rules').innerHTML=ISS.length?ISS.map((is,i)=>`<div class="issue ${is.sev}"><p data-goto="${is.id}">${is.msg}</p><div class="seg">${is.fixes.map((f,j)=>`<button data-fix="${i}" data-pick="${j}">${f[0]}</button>`).join('')}</div></div>`).join('')
     :'<div class="ok">Όλα εντάξει: γυρίσματα στις άκρες, μη φωτιζόμενη πίσω πλευρά αποθήκης, κανένα μονοκόμματο πλαίσιο πάνω από 500 cm χωρίς έγκριση.</div>';
 }
+// Κουμπιά κατάστασης (πλαίσιο ή πόρτα), από το STATUS του config.js
+function stButtons(el){
+  const k=stKind(el); if(!k) return ''; const door=k==='door';
+  return `<div class="lbl">Κατάσταση ${door?'πόρτας':'πλαισίου'}</div><div class="seg st-seg"><button data-act="st" data-v="" aria-pressed="${!el.st}">${door?'Υπάρχουσα':'Υπάρχον'}</button>`+
+    Object.entries(STATUS).filter(([,s])=>s.for.includes(k)).map(([v,s])=>`<button data-act="st" data-v="${v}" class="st-${v}" aria-pressed="${el.st===v}">${door?(s.doorName||s.short||s.name):s.name}</button>`).join('')+'</div>';
+}
 function renderInspector(){
   const el=byId(sel), box=$('insp');
   if(!el){box.innerHTML=`<div class="lbl">Επιλεγμένο στοιχείο</div><div class="empty">Τίποτα επιλεγμένο. Πάτα ένα πλαίσιο, πόρτα, σύνδεσμο ή αποθήκη για να αλλάξεις μήκος, θέση και διάσταση.</div>`;return;}
@@ -443,7 +449,7 @@ function renderInspector(){
     <label class="field"><span>Τύπος</span><select id="i-type"><option value="p67"${el.type==='p67'?' selected':''}>PRF0067 · 15 cm</option><option value="p68"${el.type==='p68'?' selected':''}>PRF0068 · 4,5 cm</option></select></label></div>
     ${el.type==='p67'&&el.len>WARN67?`<label class="check"><input type="checkbox" id="i-keep"${el.keepWhole?' checked':''}> Μονοκόμματο πλαίσιο (χωρίς πρόταση χωρισμού)</label>`:''}
     ${xy}
-    <div class="lbl">Κατάσταση πλαισίου</div><div class="seg st-seg"><button data-act="st" data-v="" aria-pressed="${!el.st}">Υπάρχον</button><button data-act="st" data-v="new" class="st-new" aria-pressed="${el.st==='new'}">Καινούργιο</button><button data-act="st" data-v="mod" class="st-mod" aria-pressed="${el.st==='mod'}">Μετατροπή</button><button data-act="st" data-v="size" class="st-size" aria-pressed="${el.st==='size'}">Αλλαγή διάστασης</button></div>
+    ${stButtons(el)}
     <div class="lbl">Διάσταση</div><div class="seg"><button data-act="dim" data-v="a" aria-pressed="${el.dim==='a'}">${H?'Πάνω':'Αριστερά'}</button><button data-act="dim" data-v="b" aria-pressed="${el.dim==='b'}">${H?'Κάτω':'Δεξιά'}</button><button data-act="dim" data-v="none" aria-pressed="${el.dim==='none'}">Καμία</button></div>
     ${el.type==='p67'?`<label class="check"><input type="checkbox" id="i-led"${lit(el)?' checked':''}${back?' disabled':''}> Με φωτισμό LED</label>${back?'<p class="note">Πίσω πλευρά αποθήκης: μόνο μη φωτιζόμενο.</p>':''}`:''}
     ${acts}`;
@@ -458,7 +464,7 @@ function renderInspector(){
     const pr=PRODUCTS[el.type];
     h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${PRODUCTS[si.below.type].code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
     ${xy}
-    ${door?`<div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
+    ${door?`${stButtons(el)}<div class="lbl">Φορά</div><div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
   }
   box.innerHTML=`<div class="lbl">Επιλεγμένο στοιχείο</div>`+h;
@@ -581,7 +587,7 @@ window.addEventListener('resize',()=>renderPlan());
 function act(a,v){
   const el=byId(sel); if(!el) return;
   if(a==='dim') el.dim=v;
-  if(a==='st'&&isProf(el)){ if(STATUS[v]) el.st=v; else delete el.st; }
+  if(a==='st'&&stKind(el)){ if(STATUS[v]&&STATUS[v].for.includes(stKind(el))) el.st=v; else delete el.st; }
   if(a==='rot') rotateEl(el);
   if(a==='ang') setAngle(el,getAngle(el)+(+v||0));
   if(a==='flip'&&el.type==='door') el.flip=!el.flip;
@@ -677,7 +683,7 @@ function exportSVG(){
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 ${S.W+100} ${S.D+100}" width="${(S.W+100)*10/sc}mm" height="${(S.D+100)*10/sc}mm"><rect x="-50" y="-50" width="${S.W+100}" height="${S.D+100}" fill="#FFFFFF"/>${P.out()}</svg>`;
 }
 function exportCSV(){
-  return '﻿Κωδικός;Περιγραφή;Κατάσταση;Πλάτος πλαισίου (cm);Ύψος (cm);Τεμάχια\n'+bomRows().map(r=>[r.code,r.desc,r.len===''?'':(STATUS[r.st]?STATUS[r.st].name:'Υπάρχον'),r.len===''?'':String(r.len).replace('.',','),r.len===''?'':S.H,r.qty].join(';')).join('\n');
+  return '﻿Κωδικός;Περιγραφή;Κατάσταση;Πλάτος πλαισίου (cm);Ύψος (cm);Τεμάχια\n'+bomRows().map(r=>[r.code,r.desc,r.len===''&&r.code!=='DOOR'?'':(STATUS[r.st]?(r.code==='DOOR'&&STATUS[r.st].doorName||STATUS[r.st].name):(r.code==='DOOR'?'Υπάρχουσα':'Υπάρχον')),r.len===''?'':String(r.len).replace('.',','),r.len===''?'':S.H,r.qty].join(';')).join('\n');
 }
 // Ονόματα αρχείων σε λατινικά κεφαλαία (όπως τα αρχεία Corel: ATHANASIADIS_KATOPSI). Κάποιοι browsers χαλάνε ελληνικά ονόματα.
 const GR2L={α:'a',ά:'a',β:'v',γ:'g',δ:'d',ε:'e',έ:'e',ζ:'z',η:'i',ή:'i',θ:'th',ι:'i',ί:'i',ϊ:'i',ΐ:'i',κ:'k',λ:'l',μ:'m',ν:'n',ξ:'x',ο:'o',ό:'o',π:'p',ρ:'r',σ:'s',ς:'s',τ:'t',υ:'y',ύ:'y',ϋ:'y',ΰ:'y',φ:'f',χ:'ch',ψ:'ps',ω:'o',ώ:'o'};
