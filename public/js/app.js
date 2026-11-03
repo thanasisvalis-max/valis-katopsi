@@ -244,7 +244,7 @@ const GL={'Α':[[[0,1],[.35,0],[.7,1]],[[.13,.62],[.57,.62]]],'Π':[[[0,1],[0,0]
   '6':[[[.6,.05],[.3,.05],[.1,.3],[.05,.65],[.15,.92],[.35,1],[.55,.92],[.65,.7],[.55,.5],[.35,.45],[.15,.52],[.06,.65]]],
   '7':[[[0,0],[.7,0],[.25,1]]],'8':[ell(.35,.25,.25,.25),ell(.35,.73,.3,.27)],
   '9':[[[.64,.35],[.55,.48],[.35,.55],[.15,.48],[.05,.28],[.15,.07],[.35,0],[.55,.07],[.65,.35],[.6,.7],[.4,.95],[.15,1]]],
-  '-':[[[.15,.5],[.55,.5]]],'.':[[[.3,.95],[.4,.95]]]};
+  '-':[[[.15,.5],[.55,.5]]],':':[[[.3,.3],[.4,.3]],[[.3,.9],[.4,.9]]],'.':[[[.3,.95],[.4,.95]]]};
 // Κείμενο που μπορεί να είναι ελληνικό: στην οθόνη/SVG κανονικά, στο PDF με γραμμές (η Helvetica του PDF δεν έχει ελληνικά)
 const LAT2GR={A:'Α',B:'Β',E:'Ε',H:'Η',I:'Ι',K:'Κ',M:'Μ',N:'Ν',O:'Ο',P:'Ρ',T:'Τ',X:'Χ',Y:'Υ',Z:'Ζ'};
 const grUpper=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -261,9 +261,27 @@ function strokeText(P,cx,cy,str,h,col){
 
 /* ---------- drawing ---------- */
 // Υπόμνημα κατάστασης πλαισίων κάτω από το περίπτερο (μόνο όσες καταστάσεις υπάρχουν). Γράμματα με γραμμές: δουλεύουν και στο PDF.
+// Αριθμός περιπτέρου / stand κάτω αριστερά. Ελληνικά με γραμμές, λατινικά/ψηφία με Helvetica (για το PDF).
+function textRun(P,x,y,str,h,col){ // στοίχιση αριστερά, επιστρέφει πλάτος
+  const fs=h/.72;
+  if(!P.pdf){const w=textW(str,fs); P.text(x+w/2,y,str,fs,col); return w;}
+  const runs=[]; [...grUpper(str)].map(c=>/[\u0370-\u03ff]/.test(c)?c:c).forEach(c=>{
+    const g=/[\u0370-\u03ff]/.test(c); const last=runs[runs.length-1];
+    if(last&&(last.g===g||c===' ')) last.t+=c; else runs.push({g,t:c});});
+  let w=0; runs.forEach(r=>{
+    if(r.g){const tw=(r.t.length*.98-.28)*h; strokeText(P,x+w+tw/2,y,r.t,h,col); w+=tw+h*.3;}
+    else {const tw=textW(r.t,fs); P.text(x+w+tw/2,y,r.t,fs,col); w+=tw;}});
+  return w;
+}
+function drawBoothInfo(P,D){
+  const items=[['ΑΡΙΘΜΟΣ ΠΕΡΙΠΤΕΡΟΥ:',S.boothNo],['ΑΡΙΘΜΟΣ STAND:',S.standNo]].filter(([,v])=>v);
+  if(!items.length) return;
+  const h=6*K, y=D+38*K; let x=0;
+  items.forEach(([l,v])=>{x+=textRun(P,x,y,l,h,'#17202A')+h*.8; x+=textRun(P,x,y,String(v),h*1.15,'#17202A')+h*4;});
+}
 function drawLegend(P,D){
   const used=Object.keys(STATUS).filter(k=>S.els.some(e=>stKind(e)&&e.st===k)); if(!used.length) return;
-  const h=5, y=D+40, tw=k=>(STATUS[k].label.length*.98-.28)*h;
+  const h=5*K, y=D+38*K, tw=k=>(STATUS[k].label.length*.98-.28)*h;
   let x=S.W-used.reduce((t,k)=>t+h*3.2+tw(k),0)-h*4*(used.length-1); // στοίχιση δεξιά, μακριά από τις διαστάσεις κάτω αριστερά
   used.forEach(k=>{const s=STATUS[k], tw=(s.label.length*.98-.28)*h;
     P.rect(x,y-h*.8,h*2.4,h*1.6,s.L,C.S,.25); strokeText(P,x+h*3.2+tw/2,y,s.label,h,'#17202A'); x+=h*3.2+tw+h*4;});
@@ -358,7 +376,7 @@ function drawPlan(P,o){
     P.rect(x,y,cw,rh,part?'#F6F1E2':null,C.grid,.2); x+=cw;}); y+=rh;});
   S.els.filter(e=>e.type==='store').forEach(st=>{P.begin(st.id,bbox(st));drawStore(P,st,o.preview);P.end();});
   if(S.overall){dimH(P,0,W,-34*K,-3,-1,fmtDim(W)); dimV(P,0,D,-34*K,-3,-1,fmtDim(D));}
-  drawLegend(P,D);
+  drawLegend(P,D); drawBoothInfo(P,D);
   const order={p67:1,p68:2,door:3,conn:4};
   S.els.filter(e=>e.type!=='store').sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>withRot(P,el,()=>{P.begin(el.id,isRot(el)?localBox(el):bbox(el));drawEl(P,el);P.end();}));
   S.els.forEach(el=>withRot(P,el,()=>drawDim(P,el)));
@@ -417,7 +435,7 @@ function renderTools(){
   $('hint').textContent=HINTS[tool];
 }
 function renderBooth(){
-  $('name').value=S.name; $('W').value=S.W; $('D').value=S.D; $('H').value=S.H;
+  $('name').value=S.name; $('boothNo').value=S.boothNo||''; $('standNo').value=S.standNo||''; $('W').value=S.W; $('D').value=S.D; $('H').value=S.H;
   $('overall').checked=!!S.overall; $('magnet').checked=S.magnet!==false; $('scale').value=S.scale||10;
   [['mod',S.mod],['mode',S.mode],['snap',S.snap],['hset',S.H]].forEach(([id,v])=>document.querySelectorAll(`#${id} button`).forEach(b=>b.setAttribute('aria-pressed',b.dataset.v==String(v))));
   $('undo').disabled=!hist.length;
@@ -679,6 +697,7 @@ $('overall').addEventListener('change',e=>{S.overall=e.target.checked;commit();r
 $('magnet').addEventListener('change',e=>{S.magnet=e.target.checked;commit();});
 $('scale').addEventListener('change',e=>{S.scale=+e.target.value;commit();});
 $('name').addEventListener('change',e=>{S.name=e.target.value.trim()||'Κάτοψη';commit();});
+['boothNo','standNo'].forEach(k=>$(k).addEventListener('change',e=>{S[k]=e.target.value.trim(); commit(); renderPlan();}));
 $('undo').onclick=undo;
 // 3D: το module φορτώνει μόνο την πρώτη φορά που πατιέται το κουμπί
 $('open3d').onclick=async()=>{
