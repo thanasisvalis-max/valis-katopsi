@@ -29,6 +29,10 @@ function parts(){
   // δάπεδα περιοχών: λεπτή πλάκα πάνω στη βάση (λίγο ψηλότερα η καθεμιά, ώστε να μη «τρεμοπαίζουν» όπου επικαλύπτονται)
   S.els.filter(e=>e.type==='floor').forEach((f,i)=>{const k=floorKey(f);
     out.push({name:`DAPEDO_${latin(floorName(f)).replace(/[^A-Z0-9]+/g,'_')}`,el:f.id,floorZone:true,quad:rect(f.x,f.y,f.w,f.h),z0:0,z1:.4+i*.06,face:all(k)});});
+  // οροφές: οριζόντιο πλαίσιο, γραφικό στην κάτω όψη
+  S.els.filter(e=>e.type==='ceil').forEach(el=>{const pk=ceilProf(el), t=PROF[pk].t, z=ceilZ(el);
+    out.push({name:`OROFI_${PROF[pk].code}_${Math.round(el.w)}x${Math.round(el.h)}${ceilLit(el)?'_LED':''}`,el:el.id,ceil:true,len:el.w+el.h,
+      quad:rect(el.x,el.y,el.w,el.h),z0:z,z1:z+t,face:tag=>tag==='bottom'?'graphic':'frame'});});
   S.els.forEach(el=>{
     if(isProf(el)){
       const code=PROF[el.type].code, pf=profFaces(el), inn=pf.in.n;
@@ -198,6 +202,11 @@ function surface(key){
     return {key,w,h,label:`${PIECE_LABEL[side]} · ${fmt(w)} × ${fmt(h)} cm · ${want?'εσωτερική':'εξωτερική'} όψη`,
       c:[[L[0]+o[0],p.z0,L[1]+o[1]],[Rt[0]+o[0],p.z0,Rt[1]+o[1]],[Rt[0]+o[0],p.z1,Rt[1]+o[1]],[L[0]+o[0],p.z1,L[1]+o[1]]],n:[nx,0,ny]};
   }
+  if(el.type==='ceil'){ if(side!=='in') return null;
+    // κάτω όψη: το πάνω μέρος της εικόνας προς τον διάδρομο (y = D), ώστε να διαβάζεται ίσια από όποιον μπαίνει και κοιτάζει ψηλά
+    const z=ceilZ(el)-OFF, x0=el.x, x1=el.x+el.w, y0=el.y, y1=el.y+el.h;
+    return {key,w:el.w,h:el.h,label:`Οροφή ${PROF[ceilProf(el)].code} · κάτω όψη · ${fmt(el.w)} × ${fmt(el.h)} cm`,
+      c:[[x0,z,y0],[x1,z,y0],[x1,z,y1],[x0,z,y1]],n:[0,-1,0]};}
   if(!isProf(el)) return null;
   if(side!=='in'&&side!=='out') return null;
   const H=S.H, code=PROF[el.type].code, f=profFaces(el)[side], [nx,ny]=f.n, r=[ny,-nx], o=[nx*OFF,ny*OFF];
@@ -337,6 +346,7 @@ function pick(clientX,clientY){
     if(h.object.userData.surface) return h.object.userData.surface;
     const p=h.object.userData.part; if(!p||!p.el) continue;
     if(p.el==='floor'||p.floorZone) return h.face.normal.y>.9?'floor':null;
+    if(p.ceil){ if(h.face.normal.y<-.9) return `${p.el}:in`; toast('Το γραφικό της οροφής μπαίνει στην κάτω όψη: γύρνα την κάμερα από κάτω.'); return null;}
     if(p.prod){const n=h.face.normal; let k=null; if(n.y>.9) k=`${p.el}:top`; else if(Math.abs(n.y)<.1) for(let i=0;i<4;i++){const f=prodFace(p,i); if(n.x*f.n[0]+n.z*f.n[1]>.9) k=`${p.el}:s${i}`;}
       if(k&&!surface(k)){toast('Αυτή η όψη δεν τυπώνεται'+(k.endsWith(':top')?' (πάνω όψη: μελαμίνη ή χωρίς εκτύπωση).':'.')); return null;} return k;}
     if(p.piece){const n=h.face.normal, d=n.x*p.ax[0]+n.z*p.ax[1]; if(Math.abs(d)<.9) return null;

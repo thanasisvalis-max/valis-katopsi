@@ -22,7 +22,7 @@ const STATUS={
   size:{name:'Αλλαγή διάστασης', label:'ΑΛΛΑΓΗ ΔΙΑΣΤΑΣΗΣ', L:'#8FD3F4', Dk:'#2B88C2', for:['prof']},
   rent:{name:'Ενοίκιο', label:'ΕΝΟΙΚΙΟ', L:'#F6B072', Dk:'#C9661A', for:['prof','prod']},
   swap:{name:'Αλλαγή φοράς πόρτας', short:'Αλλαγή φοράς', label:'ΑΛΛΑΓΗ ΦΟΡΑΣ ΠΟΡΤΑΣ', L:'#C9A6E4', Dk:'#7D3C98', for:['door']}};
-const stKind=el=>!el?null:el.type==='door'?'door':(el.type==='p67'||el.type==='p68')?'prof':pdef(el)?'prod':null;
+const stKind=el=>!el?null:el.type==='door'?'door':(el.type==='p67'||el.type==='p68'||el.type==='ceil')?'prof':pdef(el)?'prod':null;
 
 // Σταθερά σύμβολα: πόρτα 105×62, σύνδεσμος 5×5
 const SYMBOX={door:[105,62],conn:[5,5]};
@@ -35,6 +35,14 @@ const MAX67=300, WARN67=500, RET=50, SHORT=60;
 
 // Τυποποιημένα ύψη περιπτέρου (cm)
 const HEIGHTS=[250,300,350];
+
+// Οροφή: οριζόντιο πλαίσιο {type:'ceil', x, y, w, h, prof:'p67'|'p68', led, z?, st?, watt?}
+//  p67 = φωτιζόμενη (PRF0067, πάχος 15), p68 = χωρίς φωτισμό (PRF0068, πάχος 5). Γραφικό στην κάτω όψη.
+//  z = ύψος της κάτω πλευράς από το δάπεδο. Default: η κορυφή της στο ύψος των πλαισίων (S.H).
+const CEIL={w:300, h:300, min:20};
+const ceilProf=el=>el.prof==='p68'?'p68':'p67';
+const ceilLit=el=>ceilProf(el)==='p67'&&el.led!==false;
+const ceilZ=el=>el.z!=null?+el.z:S.H-PROF[ceilProf(el)].t;
 
 // 3D μοντέλο (cm). Το ύψος των πλαισίων είναι το ύψος περιπτέρου (S.H).
 // personH   = ύψος ανθρώπου κλίμακας (δεν μπαίνει στις εξαγωγές).

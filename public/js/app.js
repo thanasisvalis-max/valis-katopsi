@@ -67,22 +67,23 @@ function profW(el,u,v){
 }
 const profCorners=el=>{const t=PROF[el.type].t; return [profW(el,0,0),profW(el,el.len,0),profW(el,el.len,t),profW(el,0,t)];};
 const localBox=el=>({x:el.x,y:el.y,w:el.len,h:PROF[el.type].t});   // κουτί προφίλ στο δικό του (μη περιστραμμένο) πλαίσιο
+const isArea=e=>!!e&&(e.type==='store'||e.type==='floor'||e.type==='ceil'); // ορθογώνια χωρίς περιστροφή
 const withRot=(P,el,fn)=>{if(isRot(el)){P.push(el.ang,el.x,el.y); fn(); P.pop();} else fn();};
 function bbox(el){
   if(isRot(el)){const q=profCorners(el), xs=q.map(p=>p[0]), ys=q.map(p=>p[1]), x=Math.min(...xs), y=Math.min(...ys); return {x,y,w:Math.max(...xs)-x,h:Math.max(...ys)-y};}
   if(isProf(el)){const t=PROF[el.type].t; return el.dir==='h'?{x:el.x,y:el.y,w:el.len,h:t}:{x:el.x,y:el.y,w:t,h:el.len};}
-  if(el.type==='store'||el.type==='floor') return {x:el.x,y:el.y,w:el.w,h:el.h};
+  if(isArea(el)) return {x:el.x,y:el.y,w:el.w,h:el.h};
   const s=symMatrix(el); return {x:el.x,y:el.y,w:s.w,h:s.h};
 }
 const hit=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
-const solids=ex=>S.els.filter(e=>e.type!=='store'&&e.type!=='floor'&&e.id!==ex); // αποθήκη/δάπεδο δεν «τραβούν» άλλα στοιχεία
+const solids=ex=>S.els.filter(e=>!isArea(e)&&e.id!==ex); // αποθήκη/δάπεδο δεν «τραβούν» άλλα στοιχεία
 // Γωνία στοιχείου σε μοίρες (0–360). Η αλλαγή γίνεται πάντα γύρω από το κέντρο του στοιχείου.
 function getAngle(el){
   if(isProf(el)) return el.ang?normAng(el.ang):(el.dir==='v'?90:0);
-  return el.type==='store'||el.type==='floor'?0:normAng(el.rot||0);
+  return isArea(el)?0:normAng(el.rot||0);
 }
 function setAngle(el,T){
-  if(el.type==='store'||el.type==='floor') return;
+  if(isArea(el)) return;
   T=normAng(T);
   if(isProf(el)){
     const t=PROF[el.type].t, c=profW(el,el.len/2,t/2), r=T%180;
@@ -95,7 +96,7 @@ function setAngle(el,T){
   const nb=bbox(el); el.x=n(cx-nb.w/2); el.y=n(cy-nb.h/2);
 }
 function rotateEl(el){
-  if(el.type==='store'||el.type==='floor'){const b=bbox(el), cx=b.x+b.w/2, cy=b.y+b.h/2; [el.w,el.h]=[el.h,el.w]; el.x=n(cx-el.w/2); el.y=n(cy-el.h/2); return;}
+  if(isArea(el)){const b=bbox(el), cx=b.x+b.w/2, cy=b.y+b.h/2; [el.w,el.h]=[el.h,el.w]; el.x=n(cx-el.w/2); el.y=n(cy-el.h/2); return;}
   setAngle(el,getAngle(el)+90);
 }
 
@@ -205,6 +206,8 @@ function svgPainter(inline){
     text(x,y,t,size,f,rot){const g=rot===true?-90:(+rot||0); o+=`<text x="${n(x)}" y="${n(y)}" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="${n(size)}" fill="${f}" text-anchor="middle" dominant-baseline="central"${g?` transform="rotate(${n(g)} ${n(x)} ${n(y)})"`:''}>${t}</text>`;},
     raw(s){o+=s;},
     begin(id,b){o+=`<g data-id="${id}" class="el"><rect x="${n(b.x-3)}" y="${n(b.y-3)}" width="${n(b.w+6)}" height="${n(b.h+6)}" fill="transparent"/>`;},
+    // μόνο το περίγραμμα «πιάνει» κλικ (οροφή: τα στοιχεία από κάτω μένουν επιλέξιμα)
+    beginEdge(id,b){o+=`<g data-id="${id}" class="el"><rect x="${n(b.x)}" y="${n(b.y)}" width="${n(b.w)}" height="${n(b.h)}" fill="none" stroke="transparent" stroke-width="10" vector-effect="non-scaling-stroke" pointer-events="stroke"/>`;},
     end(){o+='</g>';},
     out:()=>o};
 }
@@ -226,7 +229,7 @@ function pdfPainter(){
     text(x,y,t,size,f,rot){const w=textW(t,size), m=ROTM(rot===true?-90:(+rot||0)), c=m[0], s=m[1];
       const sx=x+c*(-w/2)-s*(size*.35), sy=y+s*(-w/2)+c*(size*.35);
       o+=`BT /F1 ${n(size)} Tf ${rgb(f)} rg ${n(c)} ${n(s)} ${n(s)} ${n(-c)} ${n(sx)} ${n(sy)} Tm (${t}) Tj ET\n`;},
-    raw(){},begin(){},end(){},out:()=>o};
+    raw(){},begin(){},beginEdge(){},end(){},out:()=>o};
 }
 /* stroke lettering so the Greek label prints in any PDF viewer */
 const ell=(cx,cy,rx,ry)=>Array.from({length:25},(_,i)=>[cx+rx*Math.cos(i/24*2*Math.PI),cy+ry*Math.sin(i/24*2*Math.PI)]);
@@ -421,6 +424,25 @@ function drawFloor(P,f,noLabel){
   P.rect(f.x,f.y,f.w,f.h,fill,mixHex(base,'#000000',.15),.35);
   if(!noLabel) floorLabel(P,f);
 }
+// Οροφή στην κάτοψη: διακεκομμένες γραμμές (στοιχείο από πάνω), εσωτερικό περίγραμμα στο πάχος του προφίλ, χιαστί και ετικέτα
+function dline(P,x1,y1,x2,y2,c,sw,d){const L=Math.hypot(x2-x1,y2-y1), k=Math.max(1,Math.round(L/(d*1.6)));
+  for(let i=0;i<k;i++){const a=i/k, b=(i+.62)/k; P.line(x1+(x2-x1)*a,y1+(y2-y1)*a,x1+(x2-x1)*b,y1+(y2-y1)*b,c,sw);}}
+function drawCeil(P,el){
+  const pk=ceilProf(el), t=PROF[pk].t, st=el.st&&STATUS[el.st], col=st?st.Dk:'#3D4650', d=5*Math.min(K,2);
+  const box=(x,y,w,h,sw)=>{dline(P,x,y,x+w,y,col,sw,d); dline(P,x+w,y,x+w,y+h,col,sw,d); dline(P,x+w,y+h,x,y+h,col,sw,d); dline(P,x,y+h,x,y,col,sw,d);};
+  box(el.x,el.y,el.w,el.h,.6); if(el.w>2*t&&el.h>2*t) box(el.x+t,el.y+t,el.w-2*t,el.h-2*t,.35);
+  dline(P,el.x,el.y,el.x+el.w,el.y+el.h,col,.25,d); dline(P,el.x+el.w,el.y,el.x,el.y+el.h,col,.25,d);
+  const a='ΟΡΟΦΗ '+PROF[pk].code+(ceilLit(el)?' LED':''), b=dimS(el.w)+'X'+dimS(el.h), cx=el.x+el.w/2, cy=el.y+el.h/2;
+  const h=Math.max(3,Math.min(6,el.w/(a.length*.95)))*Math.min(K,2), wa=runW(P,a,h), wb=runW(P,b,h*.85);
+  P.rect(cx-Math.max(wa,wb)/2-h*.5,cy-h*1.6,Math.max(wa,wb)+h,h*3.4,'#FFFFFF',null,0); // φόντο ώστε να διαβάζεται πάνω από τις γραμμές
+  textRun(P,cx-wa/2,cy-h*.55,a,h,col); textRun(P,cx-wb/2,cy+h*1.05,b,h*.85,col);
+}
+function ceilFromDrag(x0,y0,p,free){
+  const s=snapPoint(p.x,p.y,null,free); guides={x:s.gx,y:s.gy};
+  const w=Math.abs(s.x-x0), h=Math.abs(s.y-y0), base={type:'ceil',prof:'p67',led:true};
+  if(w<CEIL.min||h<CEIL.min) return {...base,x:n(x0-CEIL.w/2),y:n(y0-CEIL.h/2),w:CEIL.w,h:CEIL.h};
+  return {...base,x:Math.min(x0,s.x),y:Math.min(y0,s.y),w:n(w),h:n(h)};
+}
 function floorLabel(P,f){  const name=grUpper(floorName(f).replace(' · ',' - ')), h=Math.max(4,Math.min(9,f.w/(name.length*1.1),f.h/5))*Math.min(K,2), cx=f.x+f.w/2, cy=f.y+f.h/2;
   label(P,cx,cy-h*.8,name,h/.74,'#3A3F45',0); P.text(cx,cy+h*.9,fmtArea(f.id?floorArea(f):f.w*f.h/1e4)+' m2',h/.74*.85,'#3A3F45');
 }
@@ -461,10 +483,11 @@ function drawPlan(P,o){
   if(S.overall){dimH(P,0,W,-34*K,-3,-1,fmtDim(W)); dimV(P,0,D,-34*K,-3,-1,fmtDim(D));}
   drawLegend(P,D); drawBoothInfo(P,D); drawElecLegend(P,D);
   const order={p67:1,p68:2,door:3,conn:4,socket:6,strip:6,panel:6,spot:7}; // τα ηλεκτρολογικά πάνω από τοίχους
-  S.els.filter(e=>e.type!=='store'&&e.type!=='floor').sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>withRot(P,el,()=>{P.begin(el.id,isRot(el)?localBox(el):bbox(el));drawEl(P,el);P.end();}));
+  S.els.filter(e=>!isArea(e)).sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>withRot(P,el,()=>{P.begin(el.id,isRot(el)?localBox(el):bbox(el));drawEl(P,el);P.end();}));
+  S.els.filter(e=>e.type==='ceil').forEach(c=>{P.beginEdge(c.id,bbox(c)); drawCeil(P,c); P.end();}); // οροφές πάνω από όλα
   S.els.forEach(el=>withRot(P,el,()=>drawDim(P,el)));
   S.els.filter(hasPower).forEach(el=>drawWatt(P,el));
-  if(o.ghost){P.raw('<g opacity=".55" pointer-events="none">'); if(o.ghost.type==='store')drawStore(P,o.ghost,true); else if(o.ghost.type==='floor')drawFloor(P,o.ghost); else {drawEl(P,o.ghost);drawDim(P,o.ghost);} P.raw('</g>');}
+  if(o.ghost){P.raw('<g opacity=".55" pointer-events="none">'); if(o.ghost.type==='store')drawStore(P,o.ghost,true); else if(o.ghost.type==='floor')drawFloor(P,o.ghost); else if(o.ghost.type==='ceil')drawCeil(P,o.ghost); else {drawEl(P,o.ghost);drawDim(P,o.ghost);} P.raw('</g>');}
   if(!o.preview) return;
   // rule markers
   computeIssues().forEach(is=>{const el=byId(is.id); if(!el)return; const b=bbox(el);
@@ -515,6 +538,7 @@ const HINTS={select:'Πάτα ένα στοιχείο για να το επιλ�
   socket:'Κλικ για πρίζα. Γύρισέ τη με R ή γράψε μοίρες στο πεδίο «Γωνία».',
   strip:'Κλικ για πολύπριζο 4 θέσεων. Γύρισέ το με R.',
   panel:'Κλικ για ηλεκτρολογικό πίνακα. Γύρισέ τον με R. Γράψε την παροχή σε Watt στο πάνελ δεξιά.',
+  ceil:'Σύρε ένα ορθογώνιο για οροφή (πλαίσιο από πάνω). Απλό κλικ = 300 × 300. PRF0067 φωτιζόμενη ή PRF0068 στο πάνελ δεξιά.',
   spot:'Κλικ πάνω (ή κοντά) σε πλαίσιο: ο προβολέας κουμπώνει στο προφίλ με τον βραχίονα προς τα μέσα. Τα Watt στο πάνελ δεξιά.',
   floor:'Σύρε ένα ορθογώνιο για δάπεδο (μοκέτα, πλάκες ή γκαζόν). Απλό κλικ = όλο το περίπτερο. Υλικό και χρώμα στο πάνελ δεξιά.',
   custom:'Σύρε ένα ορθογώνιο για δικό σου στοιχείο (π.χ. πάγκος). Μετά δώσε όνομα, ύψος και χρώμα στο πάνελ δεξιά. Με απλό κλικ μπαίνει 200 × 60.',
@@ -533,6 +557,9 @@ function bomRows(){
   const g={};
   S.els.forEach(e=>{let key,code,desc,len='',st='';
     if(e.type==='store') return;
+    if(e.type==='ceil'){const pk=ceilProf(e); code=PROF[pk].code; st=e.st||'';
+      desc=`Οροφή ${dimS(e.w)}×${dimS(e.h)} · ${pk==='p67'?(ceilLit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'} · περίμετρος ${fmt(2*(e.w+e.h)/100)} m · γραφικό κάτω όψης ${dimS(e.w)}×${dimS(e.h)}`;
+      key='ceil-'+desc+st; g[key]=g[key]||{code,desc,len,st,qty:0,watt:0}; g[key].qty++; g[key].watt+=+e.watt||0; return;}
     if(e.type==='floor'){const k='floor:'+floorKey(e); g[k]=g[k]||{code:'ΔΑΠΕΔΟ',name:floorName(e),desc:'',len:'',st:'',qty:0,area:0}; g[k].qty++; g[k].area+=floorArea(e); return;}
     if(isProf(e)){code=PROF[e.type].code; len=e.len;
       desc=e.type==='p67'?(lit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'; st=e.st||''; key=code+desc+len+st;}
@@ -551,7 +578,7 @@ function bomRows(){
 function renderBom(){
   const rows=bomRows();
   if(!rows.length){$('bom').innerHTML='<div class="empty">Δεν υπάρχουν ακόμη στοιχεία στην κάτοψη.</div>';return;}
-  const m=t=>fmt(S.els.filter(e=>e.type===t).reduce((s,e)=>s+e.len,0)/100);
+  const m=t=>fmt((S.els.filter(e=>e.type===t).reduce((s,e)=>s+e.len,0)+S.els.filter(e=>e.type==='ceil'&&ceilProf(e)===t).reduce((s,e)=>s+2*(e.w+e.h),0))/100); // μαζί με την περίμετρο των οροφών
   $('bom').innerHTML=`<p class="note">Ύψος πλαισίων: <b>${fmt(S.H)} cm</b></p><table><thead><tr><th>Κωδικός</th><th class="n">Πλαίσιο</th><th class="n">Τεμ.</th></tr></thead><tbody>`+
     rows.map(r=>`<tr><td><span class="code">${r.code}</span>${r.code==='PRF0067'?`<span class="pill${r.desc.includes('χωρίς')?' off':''}">${r.desc.includes('χωρίς')?'ΧΩΡΙΣ LED':'LED'}</span>`:''}${STATUS[r.st]?`<span class="pill st-${r.st}">${STATUS[r.st].name.toUpperCase()}</span>`:''}<br><small style="color:var(--mute)">${r.desc}</small></td><td class="n">${r.len!==''?`${fmt(r.len)} × ${fmt(S.H)}`:'–'}</td><td class="n">${r.qty}</td></tr>`).join('')+
     `<tr class="tot"><td>Σύνολο PRF0067</td><td class="n">${m('p67')} m</td><td></td></tr><tr class="tot"><td>Σύνολο PRF0068</td><td class="n">${m('p68')} m</td><td></td></tr>`+
@@ -588,7 +615,7 @@ function renderInspector(){
   const el=byId(sel), box=$('insp');
   if(!el){box.innerHTML=`<div class="lbl">Επιλεγμένο στοιχείο</div><div class="empty">Τίποτα επιλεγμένο. Πάτα ένα πλαίσιο, πόρτα, σύνδεσμο ή αποθήκη για να αλλάξεις μήκος, θέση και διάσταση.</div>`;return;}
   const xy=`<div class="row"><label class="field"><span>X (cm)</span><input id="i-x" type="number" step="${S.snap}" value="${n(el.x)}"></label><label class="field"><span>Y (cm)</span><input id="i-y" type="number" step="${S.snap}" value="${n(el.y)}"></label></div>`+
-    (el.type==='store'||el.type==='floor'?'':`<div class="row"><label class="field"><span>Γωνία (°)</span><input id="i-ang" type="number" step="1" min="-360" max="360" value="${getAngle(el)}"></label><div class="seg" style="flex:none"><button data-act="ang" data-v="-15" title="−15°">−15°</button><button data-act="ang" data-v="15" title="+15°">+15°</button></div></div>`);
+    (isArea(el)?'':`<div class="row"><label class="field"><span>Γωνία (°)</span><input id="i-ang" type="number" step="1" min="-360" max="360" value="${getAngle(el)}"></label><div class="seg" style="flex:none"><button data-act="ang" data-v="-15" title="−15°">−15°</button><button data-act="ang" data-v="15" title="+15°">+15°</button></div></div>`);
   const acts=`<div class="seg"><button data-act="rot">Περιστροφή 90°</button><button data-act="dup">Αντίγραφο</button><button data-act="del">Διαγραφή</button></div>`;
   let h='';
   if(isProf(el)){
@@ -602,6 +629,18 @@ function renderInspector(){
     ${stButtons(el)}
     <div class="lbl">Διάσταση</div><div class="seg"><button data-act="dim" data-v="a" aria-pressed="${el.dim==='a'}">${H?'Πάνω':'Αριστερά'}</button><button data-act="dim" data-v="b" aria-pressed="${el.dim==='b'}">${H?'Κάτω':'Δεξιά'}</button><button data-act="dim" data-v="none" aria-pressed="${el.dim==='none'}">Καμία</button></div>
     ${el.type==='p67'?`<label class="check"><input type="checkbox" id="i-led"${lit(el)?' checked':''}${back?' disabled':''}> Με φωτισμό LED</label>${back?'<p class="note">Πίσω πλευρά αποθήκης: μόνο μη φωτιζόμενο.</p>':''}`:''}
+    ${acts}`;
+  } else if(el.type==='ceil'){
+    const pk=ceilProf(el), pr=PROF[pk];
+    h=`<div class="selhead"><b>Οροφή</b><span class="code">${pr.code}</span></div>
+    <div class="frame">Πλαίσιο οροφής ${fmt(el.w)} × ${fmt(el.h)} cm · πάχος ${fmt(pr.t)} cm</div>
+    ${xy}
+    <div class="row"><label class="field"><span>Πλάτος (cm)</span><input id="i-w" type="number" min="${CEIL.min}" step="${S.snap}" value="${n(el.w)}"></label><label class="field"><span>Βάθος (cm)</span><input id="i-h" type="number" min="${CEIL.min}" step="${S.snap}" value="${n(el.h)}"></label></div>
+    <div class="lbl">Προφίλ</div><div class="seg"><button data-act="cprof" data-v="p67" aria-pressed="${pk==='p67'}">PRF0067 · φωτιζόμενη</button><button data-act="cprof" data-v="p68" aria-pressed="${pk==='p68'}">PRF0068 · χωρίς φωτισμό</button></div>
+    ${pk==='p67'?`<label class="check"><input type="checkbox" id="i-cled"${ceilLit(el)?' checked':''}> Με φωτισμό LED</label>`:''}
+    <label class="field"><span>Ύψος κάτω πλευράς από το δάπεδο (cm)</span><input id="i-cz" type="number" min="100" step="5" value="${n(ceilZ(el))}"></label>
+    ${stButtons(el)}
+    <p class="note">Στην κάτοψη φαίνεται με διακεκομμένες γραμμές (είναι από πάνω). Default: η κορυφή της στο ύψος των πλαισίων (${fmt(S.H)} cm). Στο 3D το γραφικό μπαίνει στην κάτω όψη. Για να την επιλέξεις, πάτα το περίγραμμα ή την ετικέτα της.</p>
     ${acts}`;
   } else if(el.type==='floor'){
     const mat=el.mat||'carpet';
@@ -682,10 +721,10 @@ svg.addEventListener('pointerdown',e=>{
     else {sel=null; pan={x:e.clientX,y:e.clientY,cx:Z.cx,cy:Z.cy}; svg.setPointerCapture(e.pointerId);}
     renderPlan(); renderInspector(); return;
   }
-  if(isProf({type:tool})||tool==='store'||tool==='custom'||tool==='floor'){
+  if(isProf({type:tool})||tool==='store'||tool==='custom'||tool==='floor'||tool==='ceil'){
     const s=snapPoint(p.x,p.y,null,e.altKey); guides={x:s.gx,y:s.gy};
     drawing={type:tool,x0:s.x,y0:s.y}; svg.setPointerCapture(e.pointerId);
-    renderPlan(tool==='store'||tool==='custom'||tool==='floor'?{type:'store',x:s.x,y:s.y,w:1,h:1}:profFromDrag(tool,s.x,s.y,s.x,s.y,e.altKey)); return;
+    renderPlan(tool==='store'||tool==='custom'||tool==='floor'||tool==='ceil'?{type:'store',x:s.x,y:s.y,w:1,h:1}:profFromDrag(tool,s.x,s.y,s.x,s.y,e.altKey)); return;
   }
   const [w,h]=SYMBOX[tool], ctr=tool==='conn'||PRODUCTS[tool]||ELEC[tool], s=snapPoint(p.x-(ctr?w/2:0),p.y-(ctr?h/2:0),null,e.altKey);
   const el={id:newId(),type:tool,x:s.x,y:s.y,rot:0,flip:false};
@@ -736,7 +775,8 @@ svg.addEventListener('pointermove',e=>{
     el.x=n(drag.ox+s.x-drag.bx); el.y=n(drag.oy+s.y-drag.by); guides={x:s.gx,y:s.gy}; drag.moved=true; renderPlan();
     const ix=$('i-x'),iy=$('i-y'); if(ix){ix.value=n(el.x);iy.value=n(el.y);} }
   else if(drawing){
-    if(drawing.type==='floor'){const g=floorFromDrag(drawing.x0,drawing.y0,p,e.altKey); renderPlan(g); $('pos').textContent=`${fmt(g.w)} × ${fmt(g.h)} cm`;}
+    if(drawing.type==='ceil'){const g=ceilFromDrag(drawing.x0,drawing.y0,p,e.altKey); renderPlan(g); $('pos').textContent=`${fmt(g.w)} × ${fmt(g.h)} cm`;}
+    else if(drawing.type==='floor'){const g=floorFromDrag(drawing.x0,drawing.y0,p,e.altKey); renderPlan(g); $('pos').textContent=`${fmt(g.w)} × ${fmt(g.h)} cm`;}
     else if(drawing.type==='custom'){const g=customFromDrag(drawing.x0,drawing.y0,p,e.altKey); renderPlan(g); $('pos').textContent=`${fmt(g.w)} × ${fmt(g.d)} cm`;}
     else if(drawing.type==='store'){const g=storeFromDrag(drawing.x0,drawing.y0,p,e.altKey); renderPlan(g); $('pos').textContent=`${fmt(g.w)} × ${fmt(g.h)} cm`;}
     else {const g=profFromDrag(drawing.type,drawing.x0,drawing.y0,p.x,p.y,e.altKey); renderPlan(g);
@@ -748,9 +788,9 @@ function endPointer(e){
   if(resize){const m=resize.moved, el=byId(sel); resize=null; guides=null; if(m&&el){enforce(el); commit(); renderAll();} else renderPlan(); return;}
   if(drag){const m=drag.moved, el=byId(sel); drag=null; guides=null; if(m){if(el){enforce(el); stackSnap(el); if(!e.altKey) mountSpot(el);} commit(); renderAll();} else renderPlan();}
   if(drawing){const p=toCm(e);
-    const el=drawing.type==='floor'?floorFromDrag(drawing.x0,drawing.y0,p,e.altKey):drawing.type==='custom'?customFromDrag(drawing.x0,drawing.y0,p,e.altKey):drawing.type==='store'?storeFromDrag(drawing.x0,drawing.y0,p,e.altKey):profFromDrag(drawing.type,drawing.x0,drawing.y0,p.x,p.y,e.altKey);
+    const el=drawing.type==='ceil'?ceilFromDrag(drawing.x0,drawing.y0,p,e.altKey):drawing.type==='floor'?floorFromDrag(drawing.x0,drawing.y0,p,e.altKey):drawing.type==='custom'?customFromDrag(drawing.x0,drawing.y0,p,e.altKey):drawing.type==='store'?storeFromDrag(drawing.x0,drawing.y0,p,e.altKey):profFromDrag(drawing.type,drawing.x0,drawing.y0,p.x,p.y,e.altKey);
     el.id=newId(); drawing=null; guides=null; S.els.push(el); sel=el.id;
-    if(el.type==='store'||el.type==='custom'||el.type==='floor') tool='select'; else enforce(el);
+    if(el.type==='custom'||isArea(el)) tool='select'; else enforce(el);
     commit(); renderAll();}
 }
 svg.addEventListener('pointerup',endPointer);
@@ -775,6 +815,7 @@ function act(a,v){
   if(a==='cfill'&&el.type==='custom') el.fill=v;
   if(a==='fmat'&&el.type==='floor'){el.mat=v; if(v==='plate'&&!el.plate) el.plate='lightwood';}
   if(a==='fcol'&&el.type==='floor') el.color=v;
+  if(a==='cprof'&&el.type==='ceil'){el.prof=v; el.led=v==='p67';}
   if(a==='top'&&pdef(el)&&pdef(el).topOption) el.top=v;
   if(a==='dprint'&&el.type==='desk'){ if(v==='front') el.print='front'; else delete el.print; }
   if(a==='inv'&&el.type==='door'){
@@ -802,6 +843,8 @@ $('insp').addEventListener('change',e=>{
       const nb=bbox(el); el.x=n(cx-nb.w/2); el.y=n(cy-nb.h/2); } // αλλαγή διάστασης γύρω από το κέντρο
     commit(); renderAll(); return;}
   if(t.id==='i-plate'&&el.type==='floor') el.plate=t.value;
+  if(t.id==='i-cled') el.led=t.checked;
+  if(t.id==='i-cz'){const v=+t.value; if(v>0&&Math.abs(v-(S.H-PROF[ceilProf(el)].t))>.01) el.z=v; else delete el.z;}
   if(t.id==='i-w') el.w=Math.max(20,+t.value||el.w);
   if(t.id==='i-h') el.h=Math.max(20,+t.value||el.h);
   if(t.id==='i-type'){el.type=t.value; el.led=el.type==='p67';}
@@ -841,7 +884,7 @@ document.addEventListener('keydown',e=>{
   const k=e.key, mod=e.ctrlKey||e.metaKey;
   if(mod&&k.toLowerCase()==='z'){e.preventDefault();undo();return;}
   if(mod&&k.toLowerCase()==='d'){e.preventDefault();act('dup');return;}
-  const tk={v:'select',1:'p67',2:'p68',3:'door',4:'conn',5:'store',6:'cube',7:'pylon',8:'desk',9:'banner',p:'pylon300',c:'custom',e:'socket',m:'strip',b:'panel',l:'spot',d:'floor'}[k.toLowerCase()];
+  const tk={v:'select',1:'p67',2:'p68',3:'door',4:'conn',5:'store',6:'cube',7:'pylon',8:'desk',9:'banner',p:'pylon300',c:'custom',e:'socket',m:'strip',b:'panel',l:'spot',d:'floor',o:'ceil'}[k.toLowerCase()];
   if(tk&&!mod){tool=tk;renderTools();renderPlan();return;}
   if(k==='+'||k==='='){zoomAt(1.3);return;}
   if(k==='-'){zoomAt(1/1.3);return;}

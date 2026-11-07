@@ -180,7 +180,9 @@ function buildPanelLights(scene,R,surface){
     const sf=surface(`${p.el}:in`); if(!sf) return;
     const c=sf.c.reduce((a,v)=>[a[0]+v[0]/4,a[1]+v[1]/4,a[2]+v[2]/4],[0,0,0]).map(v=>v/100), n=new THREE.Vector3(...sf.n).normalize();
     const L=new THREE.RectAreaLight('#FFFFFF',RD.panelLight,sf.w/100,sf.h/100*.9);
-    L.position.set(c[0]+n.x*.02,c[1],c[2]+n.z*.02); L.lookAt(c[0]+n.x,c[1],c[2]+n.z); g.add(L);
+    L.position.set(c[0]+n.x*.02,c[1]+n.y*.02,c[2]+n.z*.02);
+    if(n.y<-.9) L.rotation.set(-Math.PI/2,0,0); else L.lookAt(c[0]+n.x,c[1],c[2]+n.z); // οροφή: φως προς τα κάτω
+    g.add(L);
   });
   scene.add(g); return g;
 }
