@@ -71,7 +71,7 @@ function buildHall(scene,ctr,M){
   // δάπεδο: αντανάκλαση (Reflector) + ημιδιάφανο τσιμέντο από πάνω
   const refl=new Reflector(new THREE.PlaneGeometry(span,span),{textureWidth:1024,textureHeight:1024,color:RD.reflect});
   refl.rotation.x=-Math.PI/2; refl.position.set(ctr.x,-D3.floorH/100-.04,ctr.z); // 4 cm κάτω: χωρίς z-fighting με το τσιμέντο g.add(refl);
-  const conc=new THREE.Mesh(new THREE.PlaneGeometry(span,span),new THREE.MeshStandardMaterial({map:concreteTex(),roughness:.35,transparent:true,opacity:RD.floorOpacity}));
+  const conc=new THREE.Mesh(new THREE.PlaneGeometry(span,span),new THREE.MeshStandardMaterial({map:concreteTex(),roughness:RD.floorRough,transparent:true,opacity:RD.floorOpacity}));
   conc.rotation.x=-Math.PI/2; conc.position.set(ctr.x,-D3.floorH/100-.001,ctr.z); conc.receiveShadow=true; g.add(conc);
   const ob=refl.onBeforeRender; refl.onBeforeRender=function(...a){conc.visible=false; ob.apply(this,a); conc.visible=true;};
   // οροφή με σειρές φώτων
