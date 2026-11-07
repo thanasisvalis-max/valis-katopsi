@@ -140,7 +140,7 @@ function computeIssues(){
     freeEnds(el).forEach(end=>out.push({sev:'warn',id:el.id,end,kind:'free',msg:`Ελεύθερη ${endName(el,end)} άκρη στο ${code} ${fmt(el.len)} cm. Για καλύτερη στήριξη βάλε γύρισμα.`,fixes:isRot(el)?[['Δεν χρειάζεται','okend']]:[['Γύρισμα 15 cm','ret67'],['Γύρισμα 4,5 cm','ret68'],['Δεν χρειάζεται','okend']]}));
   });
   const load=elecLoad(), sup=elecSupply(), pan=S.els.find(e=>isElec(e)&&ELEC[e.type].supply&&+e.watt>0);
-  if(sup&&load>sup) out.push({sev:'err',id:pan.id,kind:'power',msg:`Η κατανάλωση του περιπτέρου (${fmtW(load)}) ξεπερνά την παροχή του πίνακα (${fmtW(sup)}). Ζήτα μεγαλύτερη παροχή ή μείωσε τα φορτία.`,fixes:[]});
+  if(sup&&load>sup) out.push({sev:'err',id:pan.id,kind:'power',msg:`Το συνολικό φορτίο του περιπτέρου (${fmtW(load)}) ξεπερνά την παροχή του πίνακα (${fmtW(sup)}). Ζήτα μεγαλύτερη παροχή ή μείωσε τα φορτία.`,fixes:[]});
   return out;
 }
 function splitEl(el){
@@ -376,18 +376,24 @@ function mountSpot(el){
 const NOP=pdf=>new Proxy({pdf},{get:(t,k)=>k in t?t[k]:()=>{}});
 const runW=(P,str,h)=>textRun(NOP(!!P.pdf),0,0,str,h,'#000');
 function drawWatt(P,el){
-  if(!(+el.watt>0)) return;
-  const b=bbox(el), h=3.6*K, str=(ELEC[el.type].supply?'ΠΑΡΟΧΗ ':'')+fmtW(+el.watt);
-  textRun(P,b.x+b.w/2-runW(P,str,h)/2,b.y+b.h+h*1.3,str,h,ELEC_COL);
+  if(!(+el.watt>0)||!hasPower(el)) return;
+  const h=3.6*K, str=(isSupply(el)?'ΠΑΡΟΧΗ ':'')+fmtW(+el.watt), w=runW(P,str,h);
+  if(isProf(el)){ // πλαίσιο: στη μέση του μήκους, από την πλευρά χωρίς διάσταση
+    const t=PROF[el.type].t, c=profW(el,el.len/2,t/2), o=profW(el,el.len/2,t/2+1), nx=o[0]-c[0], ny=o[1]-c[1];
+    let s=el.dim==='a'?1:el.dim==='b'?-1:(nx*(S.W/2-c[0])+ny*(S.D/2-c[1])>0?1:-1);
+    const off=t/2+h*1.2+Math.abs(nx)*w/2; // σε κάθετο τοίχο το κείμενο (οριζόντιο) απομακρύνεται κατά το μισό του πλάτος
+    textRun(P,c[0]+s*nx*off-w/2,c[1]+s*ny*off,str,h,ELEC_COL); return;}
+  const b=bbox(el);
+  textRun(P,b.x+b.w/2-w/2,b.y+b.h+h*1.3,str,h,ELEC_COL);
 }
 // Υπόμνημα ηλεκτρολογικών (σύμβολο + όνομα + τεμάχια) και συνολικά Watt, κάτω από το περίπτερο
 function drawElecLegend(P,D){
-  const used=Object.keys(ELEC).filter(k=>S.els.some(e=>e.type===k)); if(!used.length) return;
-  const h=4.6*K, load=elecLoad(), sup=elecSupply(), over=sup&&load>sup, items=[];
+  const used=Object.keys(ELEC).filter(k=>S.els.some(e=>e.type===k)), load=elecLoad(), sup=elecSupply(); if(!used.length&&!load&&!sup) return;
+  const h=4.6*K, over=sup&&load>sup, items=[];
   used.forEach(k=>{const e=ELEC[k], sc=Math.min(4*h/e.w,2*h/e.d), t=grUpper(e.name)+' X'+S.els.filter(o=>o.type===k).length;
     items.push({w:e.w*sc+h*.8+runW(P,t,h),draw:(x,y)=>{drawElec(P,{type:k},([a,b])=>[x+a*sc,y-e.d*sc/2+b*sc]); textRun(P,x+e.w*sc+h*.8,y,t,h,'#17202A');}});});
   const pair=(l,v,c)=>({w:runW(P,l,h)+h*1.2+runW(P,v,h*1.15),draw:(x,y)=>{const lw=textRun(P,x,y,l,h,'#17202A'); textRun(P,x+lw+h*1.2,y,v,h*1.15,c);}});
-  if(load||sup) items.push(pair('ΣΥΝΟΛΟ ΚΑΤΑΝΑΛΩΣΗΣ:',fmtW(load),over?ELEC_COL:'#17202A'));
+  if(load||sup) items.push(pair('ΣΥΝΟΛΙΚΟ ΦΟΡΤΙΟ:',fmtW(load),over?ELEC_COL:'#17202A'));
   if(sup) items.push(pair('ΠΑΡΟΧΗ:',fmtW(sup)+(over?' !':''),over?ELEC_COL:'#17202A'));
   const gap=h*3, rows=[[]]; let x=0; // αναδίπλωση σε 2η σειρά όταν δεν χωράει στο πλάτος του περιπτέρου
   items.forEach(it=>{if(x>0&&x+it.w>S.W){rows.push([]); x=0;} rows[rows.length-1].push([x,it]); x+=it.w+gap;});
@@ -457,7 +463,7 @@ function drawPlan(P,o){
   const order={p67:1,p68:2,door:3,conn:4,socket:6,strip:6,panel:6,spot:7}; // τα ηλεκτρολογικά πάνω από τοίχους
   S.els.filter(e=>e.type!=='store'&&e.type!=='floor').sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>withRot(P,el,()=>{P.begin(el.id,isRot(el)?localBox(el):bbox(el));drawEl(P,el);P.end();}));
   S.els.forEach(el=>withRot(P,el,()=>drawDim(P,el)));
-  S.els.filter(isElec).forEach(el=>drawWatt(P,el));
+  S.els.filter(hasPower).forEach(el=>drawWatt(P,el));
   if(o.ghost){P.raw('<g opacity=".55" pointer-events="none">'); if(o.ghost.type==='store')drawStore(P,o.ghost,true); else if(o.ghost.type==='floor')drawFloor(P,o.ghost); else {drawEl(P,o.ghost);drawDim(P,o.ghost);} P.raw('</g>');}
   if(!o.preview) return;
   // rule markers
@@ -538,7 +544,7 @@ function bomRows(){
       if(x.supply||e.type==='spot'){ if(+e.watt>0){desc+=(x.supply?' · παροχή ':' ')+fmtW(+e.watt);} key+='-'+(+e.watt||0);}
       else {g[key]=g[key]||{code,desc,len,st,qty:0,watt:0}; g[key].watt+=+e.watt||0; g[key].qty++; return;}}
     else {code='CONN';desc='Σύνδεσμος προφίλ';key='conn';}
-    g[key]=g[key]||{code,desc,len,st,qty:0}; g[key].qty++;});
+    g[key]=g[key]||{code,desc,len,st,qty:0,watt:0}; g[key].qty++; if(!isSupply(e)) g[key].watt+=+e.watt||0;});
   Object.values(g).forEach(r=>{if(r.watt) r.desc+=` · σύνολο ${fmtW(r.watt)}`; if(r.code==='ΔΑΠΕΔΟ') r.desc=`${r.name} · ${fmtArea(r.area)} m²`+(r.qty>1?` (${r.qty} περιοχές)`:'');});
   return Object.values(g).sort((a,b)=>a.code.localeCompare(b.code)||(a.st||'').localeCompare(b.st||'')||a.desc.localeCompare(b.desc)||(b.len||0)-(a.len||0));
 }
@@ -549,7 +555,7 @@ function renderBom(){
   $('bom').innerHTML=`<p class="note">Ύψος πλαισίων: <b>${fmt(S.H)} cm</b></p><table><thead><tr><th>Κωδικός</th><th class="n">Πλαίσιο</th><th class="n">Τεμ.</th></tr></thead><tbody>`+
     rows.map(r=>`<tr><td><span class="code">${r.code}</span>${r.code==='PRF0067'?`<span class="pill${r.desc.includes('χωρίς')?' off':''}">${r.desc.includes('χωρίς')?'ΧΩΡΙΣ LED':'LED'}</span>`:''}${STATUS[r.st]?`<span class="pill st-${r.st}">${STATUS[r.st].name.toUpperCase()}</span>`:''}<br><small style="color:var(--mute)">${r.desc}</small></td><td class="n">${r.len!==''?`${fmt(r.len)} × ${fmt(S.H)}`:'–'}</td><td class="n">${r.qty}</td></tr>`).join('')+
     `<tr class="tot"><td>Σύνολο PRF0067</td><td class="n">${m('p67')} m</td><td></td></tr><tr class="tot"><td>Σύνολο PRF0068</td><td class="n">${m('p68')} m</td><td></td></tr>`+
-    (elecLoad()||elecSupply()?`<tr class="tot"><td>Κατανάλωση ρεύματος</td><td class="n"${elecSupply()&&elecLoad()>elecSupply()?' style="color:#C8382C"':''}>${fmtW(elecLoad())}</td><td></td></tr>`+(elecSupply()?`<tr class="tot"><td>Παροχή πίνακα</td><td class="n">${fmtW(elecSupply())}</td><td></td></tr>`:''):'')+`</tbody></table>`;
+    (elecLoad()||elecSupply()?`<tr class="tot"><td>Συνολικό φορτίο</td><td class="n"${elecSupply()&&elecLoad()>elecSupply()?' style="color:#C8382C"':''}>${fmtW(elecLoad())}</td><td></td></tr>`+(elecSupply()?`<tr class="tot"><td>Παροχή πίνακα</td><td class="n">${fmtW(elecSupply())}</td><td></td></tr>`:''):'')+`</tbody></table>`;
 }
 function renderRules(){
   ISS=computeIssues(); ISS.forEach(i=>i.pick=0);
@@ -568,9 +574,9 @@ function customFields(el){
 }
 // Πεδίο Watt ηλεκτρολογικού στοιχείου + σύνολο περιπτέρου
 function wattField(el){
-  const sup=ELEC[el.type].supply, load=elecLoad(), cap=elecSupply();
+  const sup=isSupply(el), load=elecLoad(), cap=elecSupply();
   return `<label class="field"><span>${sup?'Παροχή πίνακα (W)':'Κατανάλωση (W)'}</span><input id="i-watt" type="number" min="0" step="10" value="${+el.watt||''}" placeholder="${sup?'π.χ. 3000':'π.χ. 500'}"></label>`+
-    `<p class="note">Σύνολο περιπτέρου: <b>${fmtW(load)}</b>${cap?` από ${fmtW(cap)} παροχή`+(load>cap?' · <b style="color:#C8382C">ξεπερνά την παροχή</b>':''):''}.${el.type==='spot'?' Ο προβολέας κουμπώνει στο πλησιέστερο πλαίσιο (έως 35 cm) με τον βραχίονα προς τα μέσα. Alt = ελεύθερα.':''}</p>`;
+    `<p class="note">Συνολικό φορτίο περιπτέρου: <b>${fmtW(load)}</b>${cap?` από ${fmtW(cap)} παροχή`+(load>cap?' · <b style="color:#C8382C">ξεπερνά την παροχή</b>':''):''}.${el.type==='spot'?' Ο προβολέας κουμπώνει στο πλησιέστερο πλαίσιο (έως 35 cm) με τον βραχίονα προς τα μέσα. Alt = ελεύθερα.':''}</p>`;
 }
 // Κουμπιά κατάστασης (πλαίσιο ή πόρτα), από το STATUS του config.js
 function stButtons(el){
@@ -621,6 +627,7 @@ function renderInspector(){
     ${door?`${stButtons(el)}<div class="lbl">Φορά</div><div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. Σέρνεται ελεύθερα ανά 1 cm, χωρίς μαγνήτη (βελάκια: 1 cm, Shift: 10 cm). «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
   }
+  if(hasPower(el)&&!isElec(el)) h=h.replace(acts,wattField(el)+acts); // Watt σε κάθε στοιχείο (τα ηλεκτρολογικά το έχουν ήδη)
   box.innerHTML=`<div class="lbl">Επιλεγμένο στοιχείο</div>`+h;
 }
 function renderStat(){

@@ -109,7 +109,10 @@ const ELEC={
   // Προβολέας: μπαίνει πάνω σε πλαίσιο (σφιγκτήρας στο προφίλ) με τον βραχίονα προς το εσωτερικό του περιπτέρου
   spot:  {name:'Προβολέας', code:'ΠΡΟΒΟΛΕΑΣ', w:16, d:40, key:'L', watt:50, mount:[8,4], reach:35}};
 // Ετικέτες Watt: «Κατανάλωση» για ό,τι καταναλώνει, «Παροχή» για τον πίνακα (η διαθέσιμη ισχύς της έκθεσης)
-const elecLoad=()=>S.els.filter(e=>isElec(e)&&!ELEC[e.type].supply).reduce((t,e)=>t+(+e.watt||0),0);
+// Κατανάλωση (W) τη γράφει ο χρήστης σε κάθε στοιχείο εκτός αποθήκης, δαπέδου και συνδέσμου. Ο πίνακας γράφει παροχή.
+const hasPower=e=>!!e&&!['store','floor','conn'].includes(e.type);
+const isSupply=e=>isElec(e)&&!!ELEC[e.type].supply;
+const elecLoad=()=>S.els.filter(e=>hasPower(e)&&!isSupply(e)).reduce((t,e)=>t+(+e.watt||0),0);
 const elecSupply=()=>S.els.filter(e=>isElec(e)&&ELEC[e.type].supply).reduce((t,e)=>t+(+e.watt||0),0);
 const fmtW=v=>Math.round(v).toLocaleString('el-GR')+' W';
 const ELEC_COL='#C8382C';
