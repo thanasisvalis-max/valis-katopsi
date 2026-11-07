@@ -34,6 +34,48 @@ const concreteTex=()=>{rnd=11; return canvasTex(1024,(x,s)=>{
   for(let k=0;k<=s;k+=s/2){x.beginPath(); x.moveTo(k,0); x.lineTo(k,s); x.moveTo(0,k); x.lineTo(s,k); x.stroke();}
 },8);};
 
+/* ---------- δάπεδα περιοχών: υφές (m = μέτρα που καλύπτει μία επανάληψη της υφής) ---------- */
+const shade=(hex,t)=>{const c=new THREE.Color(hex); return '#'+c.offsetHSL(0,0,t).getHexString();};
+const FLOOR_GEN={
+  carpet:(c)=>({m:1,r:1,tex:(rnd=7,canvasTex(512,(x,s)=>{x.fillStyle=c; x.fillRect(0,0,s,s);
+    for(let i=0;i<60000;i++){x.fillStyle=rand()<.5?'rgba(255,255,255,.10)':'rgba(0,0,0,.16)'; x.fillRect(rand()*s,rand()*s,1+rand()*2,1+rand()*2);}}))}),
+  grass:()=>({m:1,r:.95,tex:(rnd=5,canvasTex(1024,(x,s)=>{x.fillStyle='#3F6B27'; x.fillRect(0,0,s,s);
+    for(let i=0;i<45000;i++){const px=rand()*s, py=rand()*s, l=6+rand()*14, a=-Math.PI/2+(rand()-.5)*.9, g=90+rand()*90|0;
+      x.strokeStyle=`rgba(${40+rand()*50|0},${g},${25+rand()*30|0},.85)`; x.lineWidth=1+rand()*1.3; x.beginPath(); x.moveTo(px,py); x.lineTo(px+Math.cos(a)*l,py+Math.sin(a)*l); x.stroke();}}))}),
+  planks:(p)=>({m:2,r:.55,tex:(rnd=13,canvasTex(1024,(x,s)=>{const pw=s/10;
+    for(let i=0;i<10;i++){let y=-rand()*s; while(y<s){const L=s*(.35+rand()*.45); x.fillStyle=p.c[(rand()*p.c.length)|0]; x.fillRect(i*pw,y,pw,L);
+      for(let k=0;k<14;k++){x.strokeStyle=`rgba(0,0,0,${.04+rand()*.08})`; x.lineWidth=1+rand()*1.5; const gx=i*pw+rand()*pw; x.beginPath(); x.moveTo(gx,y); x.bezierCurveTo(gx+(rand()-.5)*8,y+L*.3,gx+(rand()-.5)*8,y+L*.7,gx+(rand()-.5)*6,y+L); x.stroke();}
+      x.fillStyle='rgba(0,0,0,.35)'; x.fillRect(i*pw,y,pw,2); y+=L;}
+      x.fillStyle='rgba(0,0,0,.35)'; x.fillRect(i*pw,0,2,s);}}))}),
+  parquet:(p)=>({m:1,r:.5,tex:(rnd=17,canvasTex(1024,(x,s)=>{const q=s/4, st=q/5;
+    for(let i=0;i<4;i++) for(let j=0;j<4;j++) for(let k=0;k<5;k++){x.fillStyle=shade(p.c[(i+j+k)%2],(rand()-.5)*.06);
+      if((i+j)%2) x.fillRect(i*q+k*st,j*q,st-1,q-1); else x.fillRect(i*q,j*q+k*st,q-1,st-1);}}))}),
+  marble:(p)=>({m:2,r:.18,tex:(rnd=23,canvasTex(1024,(x,s)=>{x.fillStyle=p.c[0]; x.fillRect(0,0,s,s);
+    for(let i=0;i<26;i++){x.strokeStyle=p.c[1]; x.globalAlpha=.15+rand()*.35; x.lineWidth=.6+rand()*2.2; x.beginPath(); let px=rand()*s, py=rand()*s; x.moveTo(px,py);
+      for(let k=0;k<8;k++){px+=(rand()-.3)*160; py+=(rand()-.5)*120; x.lineTo(px,py);} x.stroke();}
+    x.globalAlpha=1; x.fillStyle='rgba(0,0,0,.25)'; x.fillRect(s/2,0,2,s); x.fillRect(0,s/2,s,2); x.fillRect(0,0,2,s); x.fillRect(0,0,s,2);}))}),
+  concrete:(p)=>({m:3,r:.75,tex:(rnd=29,canvasTex(1024,(x,s)=>{x.fillStyle=p.c[0]; x.fillRect(0,0,s,s);
+    for(let i=0;i<120;i++){const r=30+rand()*200, cx=rand()*s, cy=rand()*s, g=x.createRadialGradient(cx,cy,0,cx,cy,r), a=.04+rand()*.07;
+      g.addColorStop(0,rand()<.5?`rgba(255,255,255,${a})`:`rgba(0,0,0,${a})`); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; x.fillRect(cx-r,cy-r,2*r,2*r);}}))}),
+  tiles:(p)=>({m:1,r:.6,tex:(rnd=31,canvasTex(1024,(x,s)=>{const n=Math.max(1,Math.round(100/(p.size||30))), t=s/n;
+    x.fillStyle=p.c[1]; x.fillRect(0,0,s,s);
+    for(let i=0;i<n;i++) for(let j=0;j<n;j++){x.fillStyle=shade(p.c[0],(rand()-.5)*.08); x.fillRect(i*t+3,j*t+3,t-6,t-6);}}))}),
+  corten:(p)=>({m:2,r:.8,tex:(rnd=37,canvasTex(1024,(x,s)=>{x.fillStyle=p.c[0]; x.fillRect(0,0,s,s);
+    for(let i=0;i<4000;i++){const r=2+rand()*14; x.fillStyle=rand()<.5?`rgba(60,25,8,${.08+rand()*.15})`:`rgba(200,110,50,${.05+rand()*.12})`; x.beginPath(); x.arc(rand()*s,rand()*s,r,0,7); x.fill();}
+    x.fillStyle='rgba(0,0,0,.3)'; x.fillRect(s/2,0,2,s); x.fillRect(0,s/2,s,2);}))}),
+  studs:(p)=>({m:.5,r:.85,tex:canvasTex(512,(x,s)=>{x.fillStyle=p.c[0]; x.fillRect(0,0,s,s); const n=8, t=s/n;
+    for(let i=0;i<n;i++) for(let j=0;j<n;j++){x.fillStyle=p.c[1]; x.beginPath(); x.arc(i*t+t/2,j*t+t/2,t*.28,0,7); x.fill(); x.fillStyle='rgba(255,255,255,.12)'; x.beginPath(); x.arc(i*t+t/2-2,j*t+t/2-2,t*.12,0,7); x.fill();}})})};
+const floorTexCache=new Map();
+function floorMat(key){
+  if(floorTexCache.has(key)) return floorTexCache.get(key);
+  let g;
+  if(key==='fl_grass') g=FLOOR_GEN.grass();
+  else if(key.startsWith('fl_plate_')){const p=FLOOR.plates[key.slice(9)]||FLOOR.plates.lightwood; g=FLOOR_GEN[p.kind](p);}
+  else g=FLOOR_GEN.carpet('#'+key.slice(10));
+  const mat=new THREE.MeshStandardMaterial({map:g.tex,roughness:g.r,metalness:key.endsWith('corten')?.25:0});
+  const o={mat,m:g.m}; floorTexCache.set(key,o); return o;
+}
+
 /* ---------- υλικά ---------- */
 function makeRMats(){
   const std=(o)=>new THREE.MeshStandardMaterial(o);
@@ -100,10 +142,16 @@ function buildHall(scene,ctr,M){
 /* ---------- περίπτερο ---------- */
 function buildBooth(R,M){
   const g=new THREE.Group(); g.name='BOOTH';
-  R.model.children.filter(o=>o.isMesh&&o.userData.part).forEach(src=>{ // όχι τα περιγράμματα (LineSegments2 είναι κι αυτά Mesh)
+  R.model.children.filter(o=>o.isMesh&&o.userData.part&&!o.userData.part.floorZone).forEach(src=>{ // όχι τα περιγράμματα (LineSegments2 είναι κι αυτά Mesh)
     const p=src.userData.part, lit=isLitPart(p), keys=src.userData.keys||[];
     const mats=keys.map(k=>matFor(k,lit,M));
     const m=new THREE.Mesh(src.geometry,mats); m.castShadow=p.el!=='floor'; m.receiveShadow=true; g.add(m);
+  });
+  // δάπεδα περιοχών: επίπεδα με υφή σε πραγματική κλίμακα
+  S.els.filter(e=>e.type==='floor').forEach((f,i)=>{
+    const fm=floorMat(floorKey(f)), w=f.w/100, d=f.h/100, geo=new THREE.PlaneGeometry(w,d), uv=geo.attributes.uv;
+    for(let k=0;k<uv.count;k++) uv.setXY(k,uv.getX(k)*w/fm.m+f.x/100/fm.m,uv.getY(k)*d/fm.m-f.y/100/fm.m); // συνεχής υφή μεταξύ γειτονικών περιοχών
+    const m=new THREE.Mesh(geo,fm.mat); m.rotation.x=-Math.PI/2; m.position.set(f.x/100+w/2,(.4+i*.06)/100,f.y/100+d/2); m.receiveShadow=true; g.add(m);
   });
   // αλουμινένιο περιθώριο γύρω από τη μοκέτα
   const W=S.W/100, D=S.D/100, h=D3.floorH/100+.006, t=.025;

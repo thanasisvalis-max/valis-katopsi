@@ -26,6 +26,9 @@ function parts(){
   const rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];
   const all=m=>()=>m;
   out.push({name:'DAPEDO',el:'floor',quad:rect(0,0,S.W,S.D),z0:-D3.floorH,z1:0,face:all('floor')});
+  // δάπεδα περιοχών: λεπτή πλάκα πάνω στη βάση (λίγο ψηλότερα η καθεμιά, ώστε να μη «τρεμοπαίζουν» όπου επικαλύπτονται)
+  S.els.filter(e=>e.type==='floor').forEach((f,i)=>{const k=floorKey(f);
+    out.push({name:`DAPEDO_${latin(floorName(f)).replace(/[^A-Z0-9]+/g,'_')}`,el:f.id,floorZone:true,quad:rect(f.x,f.y,f.w,f.h),z0:0,z1:.4+i*.06,face:all(k)});});
   S.els.forEach(el=>{
     if(isProf(el)){
       const code=PROF[el.type].code, pf=profFaces(el), inn=pf.in.n;
@@ -100,7 +103,7 @@ function prismTris(p){
     return {t,mat:p.face(tag,n)};
   });
 }
-const colorOf=m=>m==='graphic'?gfxColor():String(m).startsWith('c_')?'#'+m.slice(2):D3.colors[m];
+const colorOf=m=>m==='graphic'?gfxColor():String(m).startsWith('c_')?'#'+m.slice(2):String(m).startsWith('fl_')?floorColor(m):D3.colors[m];
 
 /* ---------- 2. Επιφάνειες για γραφικά ----------
    Κλειδί επιφάνειας: '<id στοιχείου>:in' (εσωτερική όψη), '<id>:out' (εξωτερική), 'floor' (δάπεδο),
@@ -181,7 +184,7 @@ function toDAE(list,gfx){
   });
   const mats=[...used];
   const fx=mats.map(m=>`<effect id="fx-${m}"><profile_COMMON><technique sid="common"><lambert><diffuse><color>${hex(colorOf(m))} 1</color></diffuse></lambert></technique></profile_COMMON></effect>`).join('')+fxT;
-  const ml=mats.map(m=>`<material id="mat-${m}" name="${DAE_NAME[m]||(String(m).startsWith('c_')?'XROMA_'+m.slice(2):m)}"><instance_effect url="#fx-${m}"/></material>`).join('')+mlT;
+  const ml=mats.map(m=>`<material id="mat-${m}" name="${DAE_NAME[m]||(String(m).startsWith('c_')?'XROMA_'+m.slice(2):String(m).startsWith('fl_')?'DAPEDO_'+m.slice(3).toUpperCase().replace('CARPET','MOKETA').replace('GRASS','GKAZON').replace('PLATE','PLAKA'):m)}"><instance_effect url="#fx-${m}"/></material>`).join('')+mlT;
   const now=new Date().toISOString();
   return `<?xml version="1.0" encoding="utf-8"?>
 <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1"><asset><contributor><authoring_tool>Valis Frames Katopsi</authoring_tool></contributor><created>${now}</created><modified>${now}</modified><unit name="centimeter" meter="0.01"/><up_axis>Z_UP</up_axis></asset>
@@ -273,7 +276,7 @@ function pick(clientX,clientY){
   for(const h of hits){
     if(h.object.userData.surface) return h.object.userData.surface;
     const p=h.object.userData.part; if(!p||!p.el) continue;
-    if(p.el==='floor') return h.face.normal.y>.9?'floor':null;
+    if(p.el==='floor'||p.floorZone) return h.face.normal.y>.9?'floor':null;
     if(p.prod){const n=h.face.normal; let k=null; if(n.y>.9) k=`${p.el}:top`; else if(Math.abs(n.y)<.1) for(let i=0;i<4;i++){const f=prodFace(p,i); if(n.x*f.n[0]+n.z*f.n[1]>.9) k=`${p.el}:s${i}`;}
       if(k&&!surface(k)){toast('Αυτή η όψη δεν τυπώνεται'+(k.endsWith(':top')?' (πάνω όψη: μελαμίνη ή χωρίς εκτύπωση).':'.')); return null;} return k;}
     if(p.piece){const n=h.face.normal, d=n.x*p.ax[0]+n.z*p.ax[1]; if(Math.abs(d)<.9) return null;

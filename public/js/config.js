@@ -65,6 +65,41 @@ const PRODUCTS={
 // Όψεις εκτύπωσης (τοπικά, πριν την περιστροφή): s0 = πίσω (y=0), s1 = δεξιά, s2 = ΜΠΡΟΣΤΑ (y=βάθος), s3 = αριστερά, top = πάνω.
 //  desk: μπροστά + 2 πλαϊνά (πίσω και πάνω δεν τυπώνονται) · banner: οι 2 μεγάλες όψεις
 //  cube/pylon/pylon300: επιλογή ανά τεμάχιο el.top = 'print' (α: 5 πλευρές, default) ή 'melamine' (β: 4 πλευρές + μελαμίνη πάνω)
+// Δάπεδα περιοχών (εργαλείο «Δάπεδο»): {type:'floor', x, y, w, h, mat:'carpet'|'plate'|'grass', color?, plate?}
+//  Μοκέτα σε χρώματα, πλάκες κάλυψης (κατηγορίες όπως στον κατάλογο stand-on cover plates, με δικές μας υφές) και γκαζόν.
+//  kind = γεννήτρια υφής στο render (render3d.js), c = χρώματα, size = μέγεθος πλακιδίου (cm).
+const FLOOR={
+  carpetColors:[['#5E6064','Γκρι'],['#2F3236','Ανθρακί'],['#1C1D20','Μαύρο'],['#B9AE9C','Μπεζ'],['#9A1F2B','Μπορντό'],['#C8102E','Κόκκινο'],['#1F4E8C','Μπλε'],['#3D6B35','Πράσινο']],
+  grass:'#5E8C3A',
+  plates:{
+    lightwood:{name:'Ανοιχτό ξύλο', kind:'planks', c:['#D9B98C','#C9A576','#E3C79E']},
+    brownwood:{name:'Καφέ ξύλο', kind:'planks', c:['#8A5A35','#7A4E2D','#9A6840']},
+    darkwood:{name:'Σκούρο ξύλο', kind:'planks', c:['#4A2E1E','#3C2418','#56372A']},
+    barnwood:{name:'Παλιό ξύλο', kind:'planks', c:['#8F8579','#6F665C','#A39A8D']},
+    parquet:{name:'Ξύλο σε τετράγωνα', kind:'parquet', c:['#C9A06E','#B48A5A']},
+    whitemarble:{name:'Λευκό μάρμαρο', kind:'marble', c:['#ECEAE6','#B4B1AB']},
+    blackmarble:{name:'Μαύρο μάρμαρο', kind:'marble', c:['#1E1F22','#8C8F95']},
+    lightconcrete:{name:'Ανοιχτό τσιμέντο', kind:'concrete', c:['#B9B6B0']},
+    darkconcrete:{name:'Σκούρο τσιμέντο', kind:'concrete', c:['#5C5B59']},
+    flagstone:{name:'Γκρι πλακόστρωτο', kind:'tiles', c:['#8E8C88','#55544F'], size:40},
+    terracotta:{name:'Τερακότα', kind:'tiles', c:['#B8643E','#D9C8B4'], size:30},
+    corten:{name:'Corten', kind:'corten', c:['#8A4A24','#5E2F16']},
+    studs:{name:'Ανάγλυφο λάστιχο', kind:'studs', c:['#3A3B3E','#55565A']}},
+  min:20};
+const FLOOR_MAT={carpet:'Μοκέτα', plate:'Πλάκες κάλυψης', grass:'Γκαζόν'};
+// κλειδί υλικού 3D και βασικό χρώμα ενός δαπέδου
+const floorKey=el=>el.mat==='grass'?'fl_grass':el.mat==='plate'?'fl_plate_'+(el.plate||'lightwood'):'fl_carpet_'+(el.color||FLOOR.carpetColors[0][0]).replace('#','');
+function floorColor(key){
+  if(key==='fl_grass') return FLOOR.grass;
+  if(key.startsWith('fl_plate_')) return (FLOOR.plates[key.slice(9)]||FLOOR.plates.lightwood).c[0];
+  return '#'+key.slice(10);
+}
+function floorName(el){
+  if(el.mat==='grass') return 'Γκαζόν';
+  if(el.mat==='plate') return 'Πλάκες · '+(FLOOR.plates[el.plate]||FLOOR.plates.lightwood).name;
+  const c=FLOOR.carpetColors.find(x=>x[0]===(el.color||FLOOR.carpetColors[0][0])); return 'Μοκέτα '+(c?c[1].toLowerCase():el.color);
+}
+
 // Ηλεκτρολογικά (μόνο κάτοψη/PDF και λίστα υλικών, όχι 3D). w × d = μέγεθος συμβόλου στην κάτοψη (cm), col = χρώμα συμβόλου.
 const ELEC={
   socket:{name:'Πρίζα', code:'ΠΡΙΖΑ', w:14, d:14, key:'E'},
