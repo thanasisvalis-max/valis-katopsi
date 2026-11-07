@@ -112,6 +112,8 @@ wrangler.jsonc             ρύθμιση Cloudflare: assets.directory = ./publi
   - Ζωγραφίζει μόνο όταν κινείται η κάμερα (`R.rdirty`), γιατί είναι βαρύ. «Λήψη render (PNG)» = υψηλή ανάλυση (`exportPx` 3200 px) μέσω `snapshot()`.
   - Όλες οι ρυθμίσεις (λάμψη, φως πάνελ, bloom, χρώματα μοκέτας/τσιμέντου, αίθουσα) στο `D3.render` του config.js.
   - Προσοχή: τα `LineSegments2` (περιγράμματα) είναι κι αυτά `Mesh`. Φιλτράρουμε με `userData.part`.
+- **Κοινοποίηση 3D (`shareHTML()` στο view3d.js):** κουμπί «🔗 Κοινοποίηση 3D». Βγάζει **ένα αρχείο .html** (~1–3 MB) με ενσωματωμένα Three.js + OrbitControls + GLTFLoader (+BufferGeometryUtils) ως `data:` URLs σε import map και το μοντέλο ως GLB base64 (με γραφικά). Ο παραλήπτης το ανοίγει σε κάθε browser, χωρίς λογαριασμό, internet ή server (δοκιμασμένο από file:// offline). Στυλ SketchUp (Lambert + μαύρα περιγράμματα από EdgesGeometry), όψεις Ισομετρική/Μπροστά/Από πάνω. Μέσα στο Claude.ai κατεβαίνει ως .zip (η δυνατότητα downloads δεν δέχεται .html). Το GLB (`glbOf`/`modelGroup`) περιέχει μόνο κομμάτια με `userData.part` + γραφικά.
+  - **Επόμενο βήμα (θέλει το site στο Cloudflare):** κουμπί «Δημιουργία link»: Worker + R2 (δωρεάν πλάνο) αποθηκεύει το ίδιο .html και δίνει δημόσιο link `/v/<id>` εκτός Cloudflare Access (μόνο το 3D είναι δημόσιο, όχι το εργαλείο). Προτεινόμενη λήξη 30 ημέρες.
 - Το module διαβάζει τα globals του `app.js`/`config.js`/`gfxstore.js` (`S`, `PROF`, `SYM`, `D3`, `GFX`, `bbox`, `symMatrix`, `offer`, `fname`, `toast`, `commit`, `zipFiles`). Αν αλλάξουν ονόματα εκεί, ενημέρωσε και το `view3d.js`.
 
 ## Στοιχεία συστήματος (από τα αρχεία Corel)
@@ -175,6 +177,7 @@ wrangler.jsonc             ρύθμιση Cloudflare: assets.directory = ./publi
 
 | Ημερομηνία | Απόφαση |
 |---|---|
+| 2026-11-07 | Κοινοποίηση 3D χωρίς κόστος/λογαριασμό: αρχείο .html με ενσωματωμένο προβολέα. Επόμενο: δημόσιο link μέσω Cloudflare Worker + R2 όταν στηθεί το site |
 | 2026-11-07 | Δάπεδα περιοχών στην κάτοψη: μοκέτα (χρώματα), πλάκες κάλυψης (13 σχέδια τύπου stand-on, δικές μας υφές), γκαζόν. Σε κάτοψη, PDF, 3D, SketchUp, render, λίστα υλικών (m² ορατού εμβαδού) |
 | 2026-11-07 | Render πιο ήπιο (ζήτηση Θανάση): λάμψη πάνελ .7, φως πάνελ .38, bloom .09, τσιμέντο πιο ματ (roughness .6, opacity .92, αντανάκλαση 0x3a3a3a) |
 | 2026-11-07 | Φωτορεαλιστικό render στο 3D (κουμπί «Render»): φωτιζόμενα πλαίσια που ανάβουν, αλουμίνιο, μοκέτα, γυαλιστερό τσιμέντο, σκιές, αίθουσα έκθεσης. Λήψη PNG 3200 px. Όλα στον browser, χωρίς AI/κόστος |

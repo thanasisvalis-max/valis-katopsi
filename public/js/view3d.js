@@ -396,11 +396,62 @@ async function exportDAE(){
   files.unshift({name:`${base}.dae`,bytes:new TextEncoder().encode(toDAE(list,gfx))});
   offer(`${base}.zip`,zipFiles(files));
 }
-function exportGLB(){
+// μόνο τα πραγματικά κομμάτια + γραφικά (τα περιγράμματα LineSegments2 είναι κι αυτά Mesh και δεν μπαίνουν σε GLB)
+function modelGroup(){
   const g=new THREE.Group();
-  R.model.children.filter(o=>o.isMesh).forEach(m=>g.add(m.clone()));
-  R.gfxGroup.children.forEach(m=>g.add(m.clone()));
-  new GLTFExporter().parse(g,buf=>offer(`${fname()}_3D.glb`,buf),err=>toast('Δεν βγήκε το GLB: '+err.message),{binary:true});
+  R.model.children.filter(o=>o.isMesh&&o.userData.part).forEach(m=>g.add(m.clone()));
+  R.gfxGroup.children.filter(o=>o.isMesh&&o.userData.surface).forEach(m=>g.add(m.clone()));
+  return g;
+}
+const glbOf=()=>new Promise((res,rej)=>new GLTFExporter().parse(modelGroup(),res,rej,{binary:true}));
+function exportGLB(){ glbOf().then(buf=>offer(`${fname()}_3D.glb`,buf),err=>toast('Δεν βγήκε το GLB: '+err.message)); }
+
+/* ---------- Κοινοποίηση: ένα αρχείο .html με προβολέα + μοντέλο, ανοίγει σε κάθε browser χωρίς λογαριασμό/internet ---------- */
+const b64=u=>{let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s);};
+const escH=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+async function shareHTML(){
+  toast('Ετοιμάζω το αρχείο κοινοποίησης…');
+  try{
+    const glb=new Uint8Array(await glbOf()), txt=async p=>{const r=await fetch(p); if(!r.ok) throw new Error(p); return r.text();}, V='js/vendor/three/';
+    const [three,orbit,gltf,bgu]=await Promise.all([txt(V+'three.module.min.js'),txt(V+'addons/controls/OrbitControls.js'),txt(V+'addons/loaders/GLTFLoader.js'),txt(V+'addons/utils/BufferGeometryUtils.js')]);
+    const du=s=>'data:text/javascript;base64,'+b64(new TextEncoder().encode(s));
+    const imap={imports:{'three':du(three),'three/addons/controls/OrbitControls.js':du(orbit),
+      'three/addons/loaders/GLTFLoader.js':du(gltf.split("'../utils/BufferGeometryUtils.js'").join("'three/addons/utils/BufferGeometryUtils.js'")),
+      'three/addons/utils/BufferGeometryUtils.js':du(bgu)}};
+    const title=S.name||'Περίπτερο', info=[`${fmt(S.W)} × ${fmt(S.D)} cm`,`ύψος ${fmt(S.H)} cm`,S.boothNo?`περίπτερο ${S.boothNo}`:'',S.standNo?`stand ${S.standNo}`:''].filter(Boolean).join(' · ');
+    offer(`${fname()}_3D_PROVOLI.html`,viewerHTML(title,info,JSON.stringify(imap),b64(glb)));
+  }catch(e){ toast('Δεν βγήκε το αρχείο κοινοποίησης: '+e.message); }
+}
+function viewerHTML(title,info,imap,glb){
+  return `<!doctype html><html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escH(title)} · 3D</title>
+<style>html,body{margin:0;height:100%;background:#CDCDC9;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#17202A}#c{position:fixed;inset:0;touch-action:none}
+header{position:fixed;left:12px;top:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;pointer-events:none}header>*{pointer-events:auto}
+.t{background:#FFFFFFE6;padding:8px 12px;border-radius:6px;max-width:70vw}.t b{display:block;font-size:15px}.t span{font-size:12px;color:#5C6773}
+.v{display:flex;gap:4px;flex-wrap:wrap}.v button{font:inherit;font-size:13px;border:1px solid #CBD2D9;background:#fff;border-radius:4px;padding:7px 10px;cursor:pointer}
+footer{position:fixed;left:12px;right:12px;bottom:10px;font-size:12px;color:#3A3F45}footer span{background:#FFFFFFCC;padding:4px 8px;border-radius:4px}</style></head>
+<body><div id="c"></div><header><div class="t"><b>${escH(title)}</b><span>${escH(info)}</span></div><div class="v"><button data-v="iso">Ισομετρική</button><button data-v="front">Μπροστά</button><button data-v="top">Από πάνω</button></div></header>
+<footer><span>Σύρε για περιστροφή · δεξί κλικ ή δύο δάχτυλα για μετακίνηση · ροδέλα ή τσίμπημα για ζουμ · Valis Frames</span></footer>
+<script type="importmap">${imap}</script>
+<script type="module">
+import * as THREE from 'three'; import {OrbitControls} from 'three/addons/controls/OrbitControls.js'; import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const bin=Uint8Array.from(atob('${glb}'),c=>c.charCodeAt(0)).buffer, host=document.getElementById('c');
+const r=new THREE.WebGLRenderer({antialias:true}); r.setPixelRatio(Math.min(2,devicePixelRatio)); r.outputColorSpace=THREE.SRGBColorSpace; host.appendChild(r.domElement);
+const sc=new THREE.Scene(); sc.background=new THREE.Color('#CDCDC9'); sc.add(new THREE.AmbientLight(0xffffff,2.1)); const sun=new THREE.DirectionalLight(0xffffff,1.15); sun.position.set(1,2.4,1.8); sc.add(sun);
+const cam=new THREE.PerspectiveCamera(35,1,.05,200), ctl=new OrbitControls(cam,r.domElement); ctl.enableDamping=true; ctl.maxPolarAngle=Math.PI/2-.02; ctl.minDistance=1; ctl.maxDistance=60;
+let C=new THREE.Vector3(), Z=5, H=2.5;
+const V={iso:()=>[C.x+Z*.5,Z*.6,C.z+Z],front:()=>[C.x,Z*.32,C.z+Z*1.3],top:()=>[C.x,Z*1.45,C.z+.001]};
+const view=v=>{cam.position.set(...V[v]()); ctl.target.set(C.x,v==='top'?0:H*.4,C.z); ctl.update();};
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>view(b.dataset.v));
+new GLTFLoader().parse(bin,'',g=>{
+  g.scene.traverse(o=>{ if(!o.isMesh) return;
+    o.material=[].concat(o.material).map(m=>new THREE.MeshLambertMaterial({color:m.color,map:m.map||null,side:m.side,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}));
+    if(o.material.length===1) o.material=o.material[0];
+    if(!/GRAFIKO/.test(o.name)) o.add(new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry,20),new THREE.LineBasicMaterial({color:'#151515'})));});
+  sc.add(g.scene); const bb=new THREE.Box3().setFromObject(g.scene), sz=bb.getSize(new THREE.Vector3()); bb.getCenter(C); C.y=0; H=sz.y; Z=Math.max(sz.x,sz.z,sz.y)+2.5; view('iso');
+});
+const fit=()=>{r.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();}; addEventListener('resize',fit); fit();
+(function loop(){ctl.update(); r.render(sc,cam); requestAnimationFrame(loop);})();
+</script></body></html>`;
 }
 async function exportPNG(){
   if(R.rmode&&R.rs){ toast('Βγάζω το render σε υψηλή ανάλυση…'); const b=await RM.snapshot(R); offer(`${fname()}_RENDER.png`,b); return; }
@@ -415,6 +466,7 @@ $('v3d').addEventListener('click',e=>{
   if(a==='close') close3D();
   else if(a==='dae') exportDAE();
   else if(a==='glb') exportGLB();
+  else if(a==='share') shareHTML();
   else if(a==='png') exportPNG();
   else if(a==='render') toggleRender(!R.rmode);
   else setView(a);

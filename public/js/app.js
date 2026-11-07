@@ -823,7 +823,7 @@ const latin=s=>[...String(s).toLowerCase()].map(c=>GR2L[c]??c).join('').normaliz
 const fname=()=>[...(S.name||'Katopsi').toLowerCase()].map(c=>GR2L[c]??c).join('').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').toUpperCase().slice(0,80)||'KATOPSI';
 function toast(t){$('toast').textContent=t;}
-const MIME={pdf:'application/pdf',svg:'image/svg+xml',csv:'text/csv;charset=utf-8',json:'application/json',dae:'model/vnd.collada+xml',glb:'model/gltf-binary',png:'image/png',zip:'application/zip'};
+const MIME={pdf:'application/pdf',svg:'image/svg+xml',csv:'text/csv;charset=utf-8',json:'application/json',dae:'model/vnd.collada+xml',glb:'model/gltf-binary',html:'text/html;charset=utf-8',png:'image/png',zip:'application/zip'};
 // Λήψη αρχείων σε δύο περιβάλλοντα:
 //  - αυτόνομο site: κανονικό download του browser
 //  - μέσα στο Claude.ai (artifact): μέσω της δυνατότητας «downloads», που δέχεται μόνο ορισμένους τύπους.
