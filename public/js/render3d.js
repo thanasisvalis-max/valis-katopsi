@@ -160,7 +160,7 @@ function buildBooth(R,M){
   M.carpetTex.repeat.set(W*2.2,D*2.2);
   // γραφικά: σε φωτιζόμενες όψεις λάμπουν
   R.gfxGroup.children.filter(o=>o.isMesh&&o.userData.surface).forEach(src=>{
-    const id=src.userData.surface.split(':')[0], part=R.model.children.find(o=>o.userData.part&&o.userData.part.el===id);
+    const id=src.userData.surface.replace(/^span:/,'').split(':')[0], part=R.model.children.find(o=>o.userData.part&&o.userData.part.el===id);
     const lit=part&&isLitPart(part.userData.part), map=src.material.map;
     const mat=new THREE.MeshStandardMaterial({map,roughness:.85,emissive:lit?'#FFFFFF':'#000000',emissiveMap:lit?map:null,emissiveIntensity:lit?RD.glow*.85:0});
     const m=new THREE.Mesh(src.geometry,mat); m.receiveShadow=true; g.add(m); M.extra['g'+m.id]=mat;

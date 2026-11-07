@@ -111,7 +111,52 @@ const colorOf=m=>m==='graphic'?gfxColor():String(m).startsWith('c_')?'#'+m.slice
    για προϊόντα LED '<id>:s0..s3' (πλευρές) και '<id>:top' (πάνω όψη, όχι στο banner).
    surface(key) → γωνίες [κάτω-αριστ, κάτω-δεξ, πάνω-δεξ, πάνω-αριστ] σε (x,h,y) cm όπως τις βλέπει κάποιος μπροστά από την όψη. */
 const OFF=0.3; // cm: το γραφικό «κάθεται» λίγο πάνω από την όψη του πλαισίου
+/* ---------- Ενιαίο γραφικό σε διπλανές όψεις: κλειδί 'span:<k1>|<k2>|…' ---------- */
+// Όψεις στο ίδιο επίπεδο, ίδιο ύψος, που ακουμπούν (κενό ≤ SPAN_GAP cm, π.χ. σύνδεσμος). Το γραφικό είναι ένα ορθογώνιο πάνω από όλες.
+const SPAN_GAP=6;
+const spanKeys=k=>k.startsWith('span:')?k.slice(5).split('|'):[k];
+const along=(sf,c)=>c[0]*sf.n[2]-c[2]*sf.n[0]; // θέση κατά μήκος της όψης (προς τα δεξιά όπως τη βλέπεις)
+function spanSurface(key){
+  const ks=spanKeys(key); if(ks.length<2) return null;
+  const sfs=ks.map(k=>surface(k)); if(sfs.some(s=>!s)) return null;
+  const a=sfs[0]; if(!sfs.every(s=>sameRow(a,s))) return null;
+  sfs.sort((p,q)=>along(a,p.c[0])-along(a,q.c[0]));
+  const f=sfs[0], l=sfs[sfs.length-1], c=[f.c[0],l.c[1],l.c[2],f.c[3]], w=Math.hypot(c[1][0]-c[0][0],c[1][2]-c[0][2]);
+  return {key,w,h:f.h,n:f.n,c,span:true,pieces:sfs.map(s=>({key:s.key,w:s.w,h:s.h,label:s.label})),
+    label:`Ενιαίο γραφικό · ${sfs.length} όψεις · ${fmt(w)} × ${fmt(f.h)} cm`};
+}
+function sameRow(a,b){ // ίδια κατεύθυνση, ίδιο επίπεδο, ίδιο ύψος
+  const d=a.n[0]*b.n[0]+a.n[2]*b.n[2]; if(d<.999) return false;
+  const off=(b.c[0][0]-a.c[0][0])*a.n[0]+(b.c[0][2]-a.c[0][2])*a.n[2]; if(Math.abs(off)>1.5) return false;
+  return Math.abs(a.c[0][1]-b.c[0][1])<1.5&&Math.abs(a.c[2][1]-b.c[2][1])<1.5;
+}
+// διπλανές όψεις που μπορούν να ενωθούν με την τρέχουσα (ή με τις άκρες ενός ενιαίου)
+function allSurfaceKeys(){
+  const out=[]; S.els.forEach(el=>{
+    if(isProf(el)) out.push(el.id+':in',el.id+':out');
+    else if(isProd(el)) ['s0','s1','s2','s3'].forEach(s=>out.push(el.id+':'+s));});
+  return out;
+}
+function spanNeighbors(key){
+  const sf=surface(key); if(!sf) return []; const mine=new Set(spanKeys(key)), lo=along(sf,sf.c[0]), hi=along(sf,sf.c[1]);
+  return allSurfaceKeys().filter(k=>!mine.has(k)).map(k=>surface(k)).filter(s=>s&&sameRow(sf,s)).filter(s=>{
+    const a=along(sf,s.c[0]), b=along(sf,s.c[1]); return (a>=hi-1&&a-hi<=SPAN_GAP)||(b<=lo+1&&lo-b<=SPAN_GAP);});
+}
+function joinSpan(key,nb){
+  const ks=[...new Set([...spanKeys(key),...spanKeys(nb)])], tmp='span:'+ks.join('|'), sf=spanSurface(tmp); if(!sf) return;
+  const nk='span:'+sf.pieces.map(p=>p.key).join('|'); S.gfx=S.gfx||{};
+  const g=S.gfx[key]||S.gfx[nb]; clearMembers(sf.pieces.map(p=>p.key)); if(g) S.gfx[nk]=g;
+  commit(); select(nk); refreshGraphics(); toast('Ενιαίο γραφικό σε '+sf.pieces.length+' όψεις: '+fmt(sf.w)+' × '+fmt(sf.h)+' cm.');
+}
+// σβήνει γραφικά μελών και άλλα ενιαία που τα περιέχουν (για να μη «τρεμοπαίζουν» δύο γραφικά στο ίδιο σημείο)
+function clearMembers(ks){
+  Object.keys(S.gfx||{}).forEach(k=>{ if(spanKeys(k).some(x=>ks.includes(x))) delete S.gfx[k]; });
+}
+function splitSpan(key){ const ks=spanKeys(key); delete S.gfx[key]; commit(); select(ks[0]); refreshGraphics(); toast('Το ενιαίο γραφικό διαλύθηκε.'); }
+const spanOf=k=>Object.keys(S.gfx||{}).find(s=>s.startsWith('span:')&&spanKeys(s).includes(k));
+
 function surface(key){
+  if(key.startsWith('span:')) return spanSurface(key);
   if(key==='floor') return {key,w:S.W,h:S.D,label:`Δάπεδο · ${fmt(S.W)} × ${fmt(S.D)} cm`,
     c:[[0,OFF,S.D],[S.W,OFF,S.D],[S.W,OFF,0],[0,OFF,0]],n:[0,1,0]};
   const [id,side,dside]=key.split(':'), el=S.els.find(e=>e.id===id); if(!el) return null;
@@ -287,13 +332,20 @@ function pick(clientX,clientY){
   }
   return null;
 }
-function select(key){ if(!R) return; R.selKey=key; drawSelection(); renderPanel(); }
+function select(key){ if(!R) return; if(key&&!key.startsWith('span:')) key=spanOf(key)||key; R.selKey=key; drawSelection(); renderPanel(); }
 function renderPanel(){
   const box=$('v3d-panel'), key=R&&R.selKey, sf=key&&surface(key);
   if(!sf){box.innerHTML=`<div class="lbl">Γραφικά</div><div class="empty">Πάτα μια επιφάνεια στο 3D (όψη πλαισίου ή δάπεδο) για να βάλεις γραφικό. Μπορείς και να σύρεις μια εικόνα πάνω στην επιφάνεια.</div>${listHTML()}`;return;}
   const g=(S.gfx||{})[key], ratio=(sf.w/sf.h);
+  const split=sf.span&&g&&g.split;
   let h=`<div class="lbl">Επιλεγμένη επιφάνεια</div><b class="v3d-sf">${sf.label}</b>
-    <div class="v3d-print">Διάσταση εκτύπωσης <b>${fmt(sf.w)} × ${fmt(sf.h)} cm</b> · αναλογία ${fmt(ratio)}:1</div>`;
+    <div class="v3d-print">Διάσταση εκτύπωσης <b>${split?sf.pieces.map(p=>fmt(p.w)+' × '+fmt(p.h)).join(' + ')+' cm':fmt(sf.w)+' × '+fmt(sf.h)+' cm'}</b> · αναλογία ${fmt(ratio)}:1</div>`;
+  if(sf.span) h+=`<div class="lbl">Εκτύπωση ενιαίου</div><div class="seg"><button data-gfx="split" data-v="0" aria-pressed="${!split}">Ενιαία (1 κομμάτι ${fmt(sf.w)}×${fmt(sf.h)})</button><button data-gfx="split" data-v="1" aria-pressed="${!!split}">Σε ${sf.pieces.length} κομμάτια</button></div>
+    ${g?'':'<p class="note">Η επιλογή κομματιών μπαίνει αφού ανεβάσεις το γραφικό.</p>'}
+    <ul class="v3d-list">${sf.pieces.map(p=>`<li><span class="frame">${p.label}</span></li>`).join('')}</ul>`;
+  const nbs=spanNeighbors(key);
+  if(nbs.length) h+=`<div class="lbl">Ενιαίο γραφικό με διπλανή όψη</div><div class="seg">${nbs.map(s=>`<button data-gfx="join" data-k="${s.key}" title="${s.label}">+ ${s.label.split(' · ')[0]} ${fmt(s.w)}×${fmt(s.h)}</button>`).join('')}</div>`;
+  if(sf.span) h+=`<div class="seg"><button data-gfx="unspan">Διάλυση ενιαίου</button></div>`;
   if(g){
     const ri=ratioInfo(sf,g);
     h+=`<div class="v3d-thumb"><img id="v3d-th" alt="Γραφικό ${g.name||''}"></div>
@@ -319,7 +371,7 @@ async function setGraphic(key,file){
   if(!surface(key)) return;
   let r; try{r=await GFX.fromFile(file);}catch(e){toast('Μόνο εικόνες JPG, PNG ή WEBP. Τα PDF μετέτρεψέ τα πρώτα σε JPG.'); return;}
   const id=GFX.newId(); await GFX.put(id,r.dataURL);
-  S.gfx=S.gfx||{}; S.gfx[key]={img:id,name:file.name||'εικόνα',iw:r.iw,ih:r.ih,fit:(S.gfx[key]&&S.gfx[key].fit)||'cover'};
+  S.gfx=S.gfx||{}; const prev=S.gfx[key]; clearMembers(spanKeys(key)); S.gfx[key]={split:prev&&prev.split,img:id,name:file.name||'εικόνα',iw:r.iw,ih:r.ih,fit:(S.gfx[key]&&S.gfx[key].fit)||'cover'};
   commit(); if(R&&R.selKey===key) renderPanel(); await refreshGraphics();
   const ri=ratioInfo(surface(key),S.gfx[key]); toast(ri.ok?'Το γραφικό μπήκε.':'Το γραφικό μπήκε. Η αναλογία δεν ταιριάζει, δες το πάνελ.');
 }
@@ -474,6 +526,9 @@ $('v3d').addEventListener('click',e=>{
 $('v3d-panel').addEventListener('click',e=>{
   const b=e.target.closest('button[data-gfx]'); if(!b||!R) return; const a=b.dataset.gfx, key=R.selKey;
   if(a==='go'){select(b.dataset.k); return;}
+  if(a==='join'){joinSpan(key,b.dataset.k); return;}
+  if(a==='unspan'){splitSpan(key); return;}
+  if(a==='split'){ if(S.gfx&&S.gfx[key]){S.gfx[key].split=b.dataset.v==='1'; commit();} renderPanel(); return; }
   if(a==='upload'){$('v3d-file').click(); return;}
   if(!key||!(S.gfx||{})[key]) return;
   if(a==='remove'){delete S.gfx[key]; commit(); toast('Το γραφικό αφαιρέθηκε.');}
