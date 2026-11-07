@@ -46,7 +46,11 @@ const DOOR={w:100, side:20, sideH:200, gap:1.5, leafW:78.5, leafH:198.5, t:5, le
 const D3={floorH:2, personH:175,
   // Στυλ SketchUp: έγχρωμη η εσωτερική όψη (γραφικό), λευκά τα πλαϊνά/κορυφή του προφίλ, μαύρα περιγράμματα
   colors:{graphic:'#F2C75C', melamine:'#D8D3C8', frame:'#F7F7F5', alu:'#A6A4A1', door:'#E9E8E4', floor:'#EDEDEB', bg:'#CDCDC9', edge:'#151515', person:'#5B6B80'},
-  edgePx:1.6};
+  edgePx:1.6,
+  // Render (φωτορεαλιστικό): φωτεινότητα πάνελ, λάμψη, αίθουσα. Μετρήσεις σε m.
+  render:{glow:.95, panelLight:.55, maxPanelLights:16, bloom:.16, bloomThreshold:.93, exposure:.92, env:.45, hemi:.25, sun:.9,
+    carpet:'#5E6064', concrete:'#7C7975', floorOpacity:.8, reflect:0x5c5c5c, bg:'#17191C', fogNear:14, fogFar:48,
+    hall:90, ceiling:8.5, colStep:13, exportPx:3200}};
 
 // Προϊόντα LED (σταθερές διαστάσεις, cm). w = πλάτος, d = βάθος (αποτύπωμα κάτοψης), h = ύψος.
 // Στην κάτοψη: γκρι παραλληλόγραμμο με ετικέτα, όπως τα σύμβολα του Θανάση.

@@ -210,9 +210,9 @@ function buildModel(list,mats){
     const tris=prismTris(p).sort((a,b)=>order.indexOf(a.mat)-order.indexOf(b.mat));
     const pos=tris.flatMap(o=>o.t.flat()).map(v=>v/100); // cm → m
     const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); geo.computeVertexNormals();
-    const used=[]; let start=0;
-    order.forEach(m=>{const n=tris.filter(o=>o.mat===m).length*3; if(n){geo.addGroup(start,n,used.length); used.push(mats[m]); start+=n;}});
-    const mesh=new THREE.Mesh(geo,used); mesh.name=p.name; mesh.userData.part=p; g.add(mesh);
+    const used=[], keys=[]; let start=0;
+    order.forEach(m=>{const n=tris.filter(o=>o.mat===m).length*3; if(n){geo.addGroup(start,n,used.length); used.push(mats[m]); keys.push(m); start+=n;}});
+    const mesh=new THREE.Mesh(geo,used); mesh.name=p.name; mesh.userData.part=p; mesh.userData.keys=keys; g.add(mesh);
     g.add(outline(geo,mats.line));
   });
   return g;
@@ -245,7 +245,15 @@ async function refreshGraphics(){
     const m=new THREE.Mesh(quadGeo(sf.c,uvs(sf,g)),new THREE.MeshLambertMaterial({map:tex}));
     m.userData.surface=k; m.name='GRAFIKO'; grp.add(m);
   }
-  drawSelection();
+  drawSelection(); if(R&&R.rmode) buildRender();
+}
+/* ---------- Render (φωτορεαλιστικό): module render3d.js, φορτώνει μόνο όταν ζητηθεί ---------- */
+let RM=null;
+async function buildRender(){ if(!R) return; RM=RM||await import('./render3d.js'); if(R&&R.rmode){RM.build(R,{surface}); R.rdirty=true;} }
+async function toggleRender(on){
+  if(!R) return; R.rmode=on; $('v3d-render').setAttribute('aria-pressed',String(on)); $('v3d-png').textContent=on?'Λήψη render (PNG)':'Εικόνα PNG';
+  if(on){ toast('Ετοιμάζω το render…'); await buildRender(); toast('Render έτοιμο. Γύρνα την κάμερα όπως θες και πάτα «Λήψη render».'); }
+  else if(RM) RM.dispose(R);
 }
 function drawSelection(){
   if(!R) return;
@@ -329,7 +337,7 @@ export function open3D(){
   $('v3d-color').value=gfxColor(); $('v3d-person').checked=S.person3d!==false; $('v3d-door').checked=!!S.doorOpen3d;
   if(R) close3D(true);
   const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
-  renderer.setPixelRatio(Math.min(2,devicePixelRatio)); renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.setPixelRatio(Math.min(2,devicePixelRatio)); renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.shadowMap.enabled=true;
   host.innerHTML=''; host.appendChild(renderer.domElement);
   const scene=new THREE.Scene(); scene.background=new THREE.Color(D3.colors.bg);
   const mats=makeMats(), list=parts(), model=buildModel(list,mats); scene.add(model);
@@ -341,17 +349,22 @@ export function open3D(){
   const camera=new THREE.PerspectiveCamera(35,1,.05,200);
   const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.maxPolarAngle=Math.PI/2-.02; controls.minDistance=1; controls.maxDistance=60;
   R={renderer,scene,camera,controls,model,gfxGroup,person,mats,list,center,size,run:true,selKey:null,selLine:null};
-  const fit=()=>{const r=host.getBoundingClientRect(); renderer.setSize(r.width,r.height); camera.aspect=r.width/Math.max(1,r.height); camera.updateProjectionMatrix(); mats.line.resolution.set(r.width,r.height); mats.sel.resolution.set(r.width,r.height);};
+  const fit=()=>{const r=host.getBoundingClientRect(); renderer.setSize(r.width,r.height); camera.aspect=r.width/Math.max(1,r.height); camera.updateProjectionMatrix(); mats.line.resolution.set(r.width,r.height); mats.sel.resolution.set(r.width,r.height); if(R&&R.rs&&RM){RM.resize(R,r.width,r.height); R.rdirty=true;}};
   R.ro=new ResizeObserver(fit); R.ro.observe(host); fit(); setView('iso');
   // κλικ (χωρίς σύρσιμο) = επιλογή επιφάνειας
   let down=null;
   renderer.domElement.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY];});
   renderer.domElement.addEventListener('pointerup',e=>{if(down&&Math.hypot(e.clientX-down[0],e.clientY-down[1])<5) select(pick(e.clientX,e.clientY)); down=null;});
   renderPanel(); refreshGraphics();
-  const loop=()=>{if(!R||!R.run) return; controls.update(); renderer.render(scene,camera); R.raf=requestAnimationFrame(loop);}; loop();
+  $('v3d-render').setAttribute('aria-pressed','false'); $('v3d-png').textContent='Εικόνα PNG';
+  // στο render ζωγραφίζουμε μόνο όταν κινείται η κάμερα ή άλλαξε κάτι (βαρύ σε αδύναμες κάρτες γραφικών)
+  const loop=()=>{if(!R||!R.run) return; const moved=controls.update();
+    if(R.rmode&&R.rs){ if(moved||R.rdirty){RM.render(R); R.rdirty=false;} } else renderer.render(scene,camera);
+    R.raf=requestAnimationFrame(loop);}; loop();
+  controls.addEventListener('change',()=>{if(R) R.rdirty=true;});
 }
 export function close3D(keepOpen){
-  if(R){R.run=false; cancelAnimationFrame(R.raf); R.ro.disconnect(); R.controls.dispose();
+  if(R){R.run=false; cancelAnimationFrame(R.raf); R.ro.disconnect(); R.controls.dispose(); if(RM) RM.dispose(R);
     R.scene.traverse(o=>{o.geometry&&o.geometry.dispose(); if(o.material&&o.material.isMaterial&&o.material.map) o.material.dispose();});
     Object.values(R.mats).forEach(m=>m.dispose());
     R.renderer.dispose(); R.renderer.domElement.remove(); R=null;}
@@ -363,7 +376,7 @@ function rebuildModel(){
   R.scene.remove(R.model); R.model.traverse(o=>o.geometry&&o.geometry.dispose());
   R.list=parts(); R.model=buildModel(R.list,R.mats); R.scene.add(R.model);
   if(R.selKey&&!surface(R.selKey)) R.selKey=null;
-  refreshGraphics(); renderPanel();
+  refreshGraphics(); renderPanel(); // το refreshGraphics ξαναχτίζει και το render αν είναι ανοιχτό
 }
 
 /* ---------- 7. Εξαγωγές ---------- */
@@ -386,7 +399,8 @@ function exportGLB(){
   R.gfxGroup.children.forEach(m=>g.add(m.clone()));
   new GLTFExporter().parse(g,buf=>offer(`${fname()}_3D.glb`,buf),err=>toast('Δεν βγήκε το GLB: '+err.message),{binary:true});
 }
-function exportPNG(){
+async function exportPNG(){
+  if(R.rmode&&R.rs){ toast('Βγάζω το render σε υψηλή ανάλυση…'); const b=await RM.snapshot(R); offer(`${fname()}_RENDER.png`,b); return; }
   const sl=R.selLine; if(sl) sl.visible=false;
   R.renderer.render(R.scene,R.camera);
   R.renderer.domElement.toBlob(b=>{offer(`${fname()}_3D.png`,b); if(sl) sl.visible=true;},'image/png');
@@ -399,6 +413,7 @@ $('v3d').addEventListener('click',e=>{
   else if(a==='dae') exportDAE();
   else if(a==='glb') exportGLB();
   else if(a==='png') exportPNG();
+  else if(a==='render') toggleRender(!R.rmode);
   else setView(a);
 });
 $('v3d-panel').addEventListener('click',e=>{
@@ -426,6 +441,6 @@ host.addEventListener('drop',async e=>{
 $('v3d-color').addEventListener('input',e=>{S.gfx3d=e.target.value; if(R) R.mats.graphic.color.set(S.gfx3d);});
 $('v3d-color').addEventListener('change',()=>commit());
 $('v3d-door').addEventListener('change',e=>{S.doorOpen3d=e.target.checked; commit(); rebuildModel();});
-$('v3d-person').addEventListener('change',e=>{S.person3d=e.target.checked; if(R) R.person.visible=S.person3d; commit();});
+$('v3d-person').addEventListener('change',e=>{S.person3d=e.target.checked; if(R){R.person.visible=S.person3d; if(R.rmode) buildRender();} commit();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&R) close3D();});
 export {parts,toDAE,prismTris,surface,setGraphic,select,exportDAE};
