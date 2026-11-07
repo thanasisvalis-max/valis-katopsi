@@ -139,6 +139,8 @@ function computeIssues(){
       out.push({sev:'err',id:el.id,kind:'back',msg:`Πίσω πλευρά αποθήκης με φωτιζόμενο πλαίσιο (${code} ${fmt(el.len)} cm). Η πίσω πλευρά της αποθήκης γίνεται πάντα με μη φωτιζόμενα πλαίσια.`,fixes:[['Αλλαγή σε 4,5 cm','to68'],['Κράτα 15 cm χωρίς LED','unlit']]});
     freeEnds(el).forEach(end=>out.push({sev:'warn',id:el.id,end,kind:'free',msg:`Ελεύθερη ${endName(el,end)} άκρη στο ${code} ${fmt(el.len)} cm. Για καλύτερη στήριξη βάλε γύρισμα.`,fixes:isRot(el)?[['Δεν χρειάζεται','okend']]:[['Γύρισμα 15 cm','ret67'],['Γύρισμα 4,5 cm','ret68'],['Δεν χρειάζεται','okend']]}));
   });
+  const load=elecLoad(), sup=elecSupply(), pan=S.els.find(e=>isElec(e)&&ELEC[e.type].supply&&+e.watt>0);
+  if(sup&&load>sup) out.push({sev:'err',id:pan.id,kind:'power',msg:`Η κατανάλωση του περιπτέρου (${fmtW(load)}) ξεπερνά την παροχή του πίνακα (${fmtW(sup)}). Ζήτα μεγαλύτερη παροχή ή μείωσε τα φορτία.`,fixes:[]});
   return out;
 }
 function splitEl(el){
@@ -343,8 +345,8 @@ function stackSnap(el){
   return true;
 }
 // Ηλεκτρολογικά σύμβολα (τοπικές συντεταγμένες, μετά περιστροφή μέσω symMatrix)
-function drawElec(P,el){
-  const e=ELEC[el.type], tf=tfOf(el), R=ELEC_COL, poly=(pts,f,sw)=>P.polyS(pts.map(tf),f,R,sw||.5), dot=(x,y,r)=>poly(ell(x,y,r,r),R,.2);
+function drawElec(P,el,tf=tfOf(el)){
+  const e=ELEC[el.type], R=ELEC_COL, poly=(pts,f,sw)=>P.polyS(pts.map(tf),f,R,sw||.5), dot=(x,y,r)=>poly(ell(x,y,r,r),R,.2);
   if(el.type==='socket'){ // κύκλος με 2 πόλους + γείωση
     poly(ell(7,7,6,6),'#FFFFFF',.6); dot(4.6,7,1.1); dot(9.4,7,1.1); P.line(...tf([7,1.6]),...tf([7,3.4]),R,.6);
   } else if(el.type==='strip'){ // σώμα + θέσεις
@@ -352,7 +354,45 @@ function drawElec(P,el){
     for(let i=0;i<e.outlets;i++){const cx=6+i*10.5; poly(ell(cx,6,3.8,3.8),'#FFFFFF',.35); dot(cx-1.5,6,.7); dot(cx+1.5,6,.7);}
   } else if(el.type==='panel'){ // ορθογώνιο μισογεμισμένο διαγώνια (σύμβολο πίνακα)
     poly([[0,0],[e.w,0],[e.w,e.d],[0,e.d]],'#FFFFFF',.7); poly([[0,e.d],[e.w,0],[e.w,e.d]],R,.7);
+  } else if(el.type==='spot'){ // σφιγκτήρας πάνω στο πλαίσιο, βραχίονας, κεφαλή προβολέα και δέσμη
+    poly([[3,0],[13,0],[13,8],[3,8]],R,.5); poly([[7,8],[9,8],[9,25],[7,25]],'#FFFFFF',.5);
+    poly([[3,25],[13,25],[16,36],[0,36]],'#FFFFFF',.7); poly([[1.5,36],[14.5,36],[14.5,38],[1.5,38]],R,.4);
+    [[2,40],[8,40.6],[14,40]].forEach(([x,y],i)=>P.line(...tf([4+i*4,38.6]),...tf([x+(x-8)*.3,y]),R,.35));
   }
+}
+// Προβολέας: κουμπώνει στο πλησιέστερο πλαίσιο (μέση του πάχους), με τον βραχίονα προς το κέντρο του περιπτέρου
+function mountSpot(el){
+  if(el.type!=='spot') return false;
+  const e=ELEC.spot, c=tfOf(el)(e.mount); let best=null;
+  S.els.filter(isProf).forEach(w=>{const t=PROF[w.type].t, a=profW(w,0,t/2), b=profW(w,w.len,t/2), dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy)||1;
+    const u=Math.max(0,Math.min(1,((c[0]-a[0])*dx+(c[1]-a[1])*dy)/(L*L))), q=[a[0]+dx*u,a[1]+dy*u], d=Math.hypot(c[0]-q[0],c[1]-q[1]);
+    if(d<=e.reach&&(!best||d<best.d)) best={d,q,nx:-dy/L,ny:dx/L};});
+  if(!best) return false;
+  let {nx,ny,q}=best; if(nx*(S.W/2-q[0])+ny*(S.D/2-q[1])<0){nx=-nx;ny=-ny;}
+  el.rot=normAng(Math.round(Math.atan2(-nx,ny)*180/Math.PI*100)/100); el.x=0; el.y=0;
+  const p=tfOf(el)(e.mount); el.x=n(q[0]-p[0]); el.y=n(q[1]-p[1]); return true;
+}
+// Watt κάτω από κάθε ηλεκτρολογικό στοιχείο (χωρίς περιστροφή, ώστε να διαβάζεται)
+const NOP=pdf=>new Proxy({pdf},{get:(t,k)=>k in t?t[k]:()=>{}});
+const runW=(P,str,h)=>textRun(NOP(!!P.pdf),0,0,str,h,'#000');
+function drawWatt(P,el){
+  if(!(+el.watt>0)) return;
+  const b=bbox(el), h=3.6*K, str=(ELEC[el.type].supply?'ΠΑΡΟΧΗ ':'')+fmtW(+el.watt);
+  textRun(P,b.x+b.w/2-runW(P,str,h)/2,b.y+b.h+h*1.3,str,h,ELEC_COL);
+}
+// Υπόμνημα ηλεκτρολογικών (σύμβολο + όνομα + τεμάχια) και συνολικά Watt, κάτω από το περίπτερο
+function drawElecLegend(P,D){
+  const used=Object.keys(ELEC).filter(k=>S.els.some(e=>e.type===k)); if(!used.length) return;
+  const h=4.6*K, load=elecLoad(), sup=elecSupply(), over=sup&&load>sup, items=[];
+  used.forEach(k=>{const e=ELEC[k], sc=Math.min(4*h/e.w,2*h/e.d), t=grUpper(e.name)+' X'+S.els.filter(o=>o.type===k).length;
+    items.push({w:e.w*sc+h*.8+runW(P,t,h),draw:(x,y)=>{drawElec(P,{type:k},([a,b])=>[x+a*sc,y-e.d*sc/2+b*sc]); textRun(P,x+e.w*sc+h*.8,y,t,h,'#17202A');}});});
+  const pair=(l,v,c)=>({w:runW(P,l,h)+h*1.2+runW(P,v,h*1.15),draw:(x,y)=>{const lw=textRun(P,x,y,l,h,'#17202A'); textRun(P,x+lw+h*1.2,y,v,h*1.15,c);}});
+  if(load||sup) items.push(pair('ΣΥΝΟΛΟ ΚΑΤΑΝΑΛΩΣΗΣ:',fmtW(load),over?ELEC_COL:'#17202A'));
+  if(sup) items.push(pair('ΠΑΡΟΧΗ:',fmtW(sup)+(over?' !':''),over?ELEC_COL:'#17202A'));
+  const gap=h*3, rows=[[]]; let x=0; // αναδίπλωση σε 2η σειρά όταν δεν χωράει στο πλάτος του περιπτέρου
+  items.forEach(it=>{if(x>0&&x+it.w>S.W){rows.push([]); x=0;} rows[rows.length-1].push([x,it]); x+=it.w+gap;});
+  const step=h*2.6, y0=D+(rows.length>1?20:28)*K;
+  rows.forEach((r,i)=>r.forEach(([x,it])=>it.draw(x,y0+i*step)));
 }
 function drawEl(P,el){ if(isProf(el)) drawProfile(P,el); else if(isProd(el)) drawProd(P,el); else if(isElec(el)) drawElec(P,el); else { const st=el.type==='door'&&STATUS[el.st]; P.sym(el.type,symMatrix(el).m,st?{[C.L]:st.L,[C.Dk]:st.Dk}:null); } }
 // Δάπεδο περιοχής: ανοιχτή απόχρωση του υλικού + όνομα και εμβαδόν στο κέντρο
@@ -413,10 +453,11 @@ function drawPlan(P,o){
     P.rect(x,y,cw,rh,part?'#F6F1E2':null,C.grid,.2); x+=cw;}); y+=rh;});
   S.els.filter(e=>e.type==='store').forEach(st=>{P.begin(st.id,bbox(st));drawStore(P,st,o.preview);P.end();});
   if(S.overall){dimH(P,0,W,-34*K,-3,-1,fmtDim(W)); dimV(P,0,D,-34*K,-3,-1,fmtDim(D));}
-  drawLegend(P,D); drawBoothInfo(P,D);
-  const order={p67:1,p68:2,door:3,conn:4,socket:6,strip:6,panel:6}; // τα ηλεκτρολογικά πάνω από τοίχους
+  drawLegend(P,D); drawBoothInfo(P,D); drawElecLegend(P,D);
+  const order={p67:1,p68:2,door:3,conn:4,socket:6,strip:6,panel:6,spot:7}; // τα ηλεκτρολογικά πάνω από τοίχους
   S.els.filter(e=>e.type!=='store'&&e.type!=='floor').sort((a,b)=>(order[a.type]||0)-(order[b.type]||0)).forEach(el=>withRot(P,el,()=>{P.begin(el.id,isRot(el)?localBox(el):bbox(el));drawEl(P,el);P.end();}));
   S.els.forEach(el=>withRot(P,el,()=>drawDim(P,el)));
+  S.els.filter(isElec).forEach(el=>drawWatt(P,el));
   if(o.ghost){P.raw('<g opacity=".55" pointer-events="none">'); if(o.ghost.type==='store')drawStore(P,o.ghost,true); else if(o.ghost.type==='floor')drawFloor(P,o.ghost); else {drawEl(P,o.ghost);drawDim(P,o.ghost);} P.raw('</g>');}
   if(!o.preview) return;
   // rule markers
@@ -467,7 +508,8 @@ const HINTS={select:'Πάτα ένα στοιχείο για να το επιλ�
   pylon300:'Κλικ για LED PYLON 70×70, ύψος 300. Γύρισέ το με R.',
   socket:'Κλικ για πρίζα. Γύρισέ τη με R ή γράψε μοίρες στο πεδίο «Γωνία».',
   strip:'Κλικ για πολύπριζο 4 θέσεων. Γύρισέ το με R.',
-  panel:'Κλικ για ηλεκτρολογικό πίνακα. Γύρισέ τον με R.',
+  panel:'Κλικ για ηλεκτρολογικό πίνακα. Γύρισέ τον με R. Γράψε την παροχή σε Watt στο πάνελ δεξιά.',
+  spot:'Κλικ πάνω (ή κοντά) σε πλαίσιο: ο προβολέας κουμπώνει στο προφίλ με τον βραχίονα προς τα μέσα. Τα Watt στο πάνελ δεξιά.',
   floor:'Σύρε ένα ορθογώνιο για δάπεδο (μοκέτα, πλάκες ή γκαζόν). Απλό κλικ = όλο το περίπτερο. Υλικό και χρώμα στο πάνελ δεξιά.',
   custom:'Σύρε ένα ορθογώνιο για δικό σου στοιχείο (π.χ. πάγκος). Μετά δώσε όνομα, ύψος και χρώμα στο πάνελ δεξιά. Με απλό κλικ μπαίνει 200 × 60.',
   desk:'Κλικ για LED INFO DESK 90×47, ύψος 90. Γύρισέ το με R.', banner:'Κλικ για LED BANNER 100×200 με πόδια. Γύρισέ το με R.'};
@@ -492,10 +534,12 @@ function bomRows(){
     else if(isProd(e)){const p=pdef(e); code=p.code;
       const pt=e.type==='banner'?'εκτύπωση 2 όψεις':e.type==='desk'?(e.print==='front'?'εκτύπωση μόνο μπροστά':'εκτύπωση μπροστά + 2 πλαϊνά'):e.top==='melamine'?'4 πλευρές εκτύπωση + μελαμίνη πάνω':'5 πλευρές εκτύπωση';
       desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; st=e.st||''; key=e.type+(e.type==='custom'?p.code+p.dims:'')+(e.top==='melamine'?'-m':'')+(e.print==='front'?'-f':'')+st;}
-    else if(isElec(e)){const x=ELEC[e.type]; code=x.code; desc=x.name+(x.outlets?` ${x.outlets} θέσεων`:''); key='elec-'+e.type;}
+    else if(isElec(e)){const x=ELEC[e.type]; code=x.code; desc=x.name+(x.outlets?` ${x.outlets} θέσεων`:''); key='elec-'+e.type;
+      if(x.supply||e.type==='spot'){ if(+e.watt>0){desc+=(x.supply?' · παροχή ':' ')+fmtW(+e.watt);} key+='-'+(+e.watt||0);}
+      else {g[key]=g[key]||{code,desc,len,st,qty:0,watt:0}; g[key].watt+=+e.watt||0; g[key].qty++; return;}}
     else {code='CONN';desc='Σύνδεσμος προφίλ';key='conn';}
     g[key]=g[key]||{code,desc,len,st,qty:0}; g[key].qty++;});
-  Object.values(g).forEach(r=>{if(r.code==='ΔΑΠΕΔΟ') r.desc=`${r.name} · ${fmtArea(r.area)} m²`+(r.qty>1?` (${r.qty} περιοχές)`:'');});
+  Object.values(g).forEach(r=>{if(r.watt) r.desc+=` · σύνολο ${fmtW(r.watt)}`; if(r.code==='ΔΑΠΕΔΟ') r.desc=`${r.name} · ${fmtArea(r.area)} m²`+(r.qty>1?` (${r.qty} περιοχές)`:'');});
   return Object.values(g).sort((a,b)=>a.code.localeCompare(b.code)||(a.st||'').localeCompare(b.st||'')||a.desc.localeCompare(b.desc)||(b.len||0)-(a.len||0));
 }
 function renderBom(){
@@ -504,7 +548,8 @@ function renderBom(){
   const m=t=>fmt(S.els.filter(e=>e.type===t).reduce((s,e)=>s+e.len,0)/100);
   $('bom').innerHTML=`<p class="note">Ύψος πλαισίων: <b>${fmt(S.H)} cm</b></p><table><thead><tr><th>Κωδικός</th><th class="n">Πλαίσιο</th><th class="n">Τεμ.</th></tr></thead><tbody>`+
     rows.map(r=>`<tr><td><span class="code">${r.code}</span>${r.code==='PRF0067'?`<span class="pill${r.desc.includes('χωρίς')?' off':''}">${r.desc.includes('χωρίς')?'ΧΩΡΙΣ LED':'LED'}</span>`:''}${STATUS[r.st]?`<span class="pill st-${r.st}">${STATUS[r.st].name.toUpperCase()}</span>`:''}<br><small style="color:var(--mute)">${r.desc}</small></td><td class="n">${r.len!==''?`${fmt(r.len)} × ${fmt(S.H)}`:'–'}</td><td class="n">${r.qty}</td></tr>`).join('')+
-    `<tr class="tot"><td>Σύνολο PRF0067</td><td class="n">${m('p67')} m</td><td></td></tr><tr class="tot"><td>Σύνολο PRF0068</td><td class="n">${m('p68')} m</td><td></td></tr></tbody></table>`;
+    `<tr class="tot"><td>Σύνολο PRF0067</td><td class="n">${m('p67')} m</td><td></td></tr><tr class="tot"><td>Σύνολο PRF0068</td><td class="n">${m('p68')} m</td><td></td></tr>`+
+    (elecLoad()||elecSupply()?`<tr class="tot"><td>Κατανάλωση ρεύματος</td><td class="n"${elecSupply()&&elecLoad()>elecSupply()?' style="color:#C8382C"':''}>${fmtW(elecLoad())}</td><td></td></tr>`+(elecSupply()?`<tr class="tot"><td>Παροχή πίνακα</td><td class="n">${fmtW(elecSupply())}</td><td></td></tr>`:''):'')+`</tbody></table>`;
 }
 function renderRules(){
   ISS=computeIssues(); ISS.forEach(i=>i.pick=0);
@@ -520,6 +565,12 @@ function customFields(el){
   <label class="field"><span>Βάθος (cm)</span><input id="i-cd" type="number" min="${CUSTOM.min}" step="${S.snap}" value="${n(el.d)}"></label>
   <label class="field"><span>Ύψος (cm)</span><input id="i-ch" type="number" min="1" step="${S.snap}" value="${n(el.h)}"></label></div>
   <div class="lbl">Χρώμα</div><div class="seg swatches">${CUSTOM.colors.map(c=>`<button data-act="cfill" data-v="${c}" aria-pressed="${(el.fill||CUSTOM.fill)===c}" title="${c}" style="background:${c}"></button>`).join('')}</div>`;
+}
+// Πεδίο Watt ηλεκτρολογικού στοιχείου + σύνολο περιπτέρου
+function wattField(el){
+  const sup=ELEC[el.type].supply, load=elecLoad(), cap=elecSupply();
+  return `<label class="field"><span>${sup?'Παροχή πίνακα (W)':'Κατανάλωση (W)'}</span><input id="i-watt" type="number" min="0" step="10" value="${+el.watt||''}" placeholder="${sup?'π.χ. 3000':'π.χ. 500'}"></label>`+
+    `<p class="note">Σύνολο περιπτέρου: <b>${fmtW(load)}</b>${cap?` από ${fmtW(cap)} παροχή`+(load>cap?' · <b style="color:#C8382C">ξεπερνά την παροχή</b>':''):''}.${el.type==='spot'?' Ο προβολέας κουμπώνει στο πλησιέστερο πλαίσιο (έως 35 cm) με τον βραχίονα προς τα μέσα. Alt = ελεύθερα.':''}</p>`;
 }
 // Κουμπιά κατάστασης (πλαίσιο ή πόρτα), από το STATUS του config.js
 function stButtons(el){
@@ -565,7 +616,7 @@ function renderInspector(){
   } else {
     const door=el.type==='door';
     const pr=pdef(el);
-    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':isElec(el)?ELEC[el.type].name:'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':isElec(el)?'ΗΛΕΚΤΡ.':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>${pr.custom?customFields(el):''}${stButtons(el)}`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${pdef(si.below).code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&el.type==='desk'?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="dprint" data-v="front3" aria-pressed="${el.print!=='front'}">Μπροστά + 2 πλαϊνά</button><button data-act="dprint" data-v="front" aria-pressed="${el.print==='front'}">Μόνο μπροστά</button></div>`:''}${pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
+    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':isElec(el)?ELEC[el.type].name:'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':isElec(el)?'ΗΛΕΚΤΡ.':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>${pr.custom?customFields(el):''}${stButtons(el)}`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${pdef(si.below).code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&el.type==='desk'?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="dprint" data-v="front3" aria-pressed="${el.print!=='front'}">Μπροστά + 2 πλαϊνά</button><button data-act="dprint" data-v="front" aria-pressed="${el.print==='front'}">Μόνο μπροστά</button></div>`:''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${isElec(el)?wattField(el):''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
     ${xy}
     ${door?`${stButtons(el)}<div class="lbl">Φορά</div><div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. Σέρνεται ελεύθερα ανά 1 cm, χωρίς μαγνήτη (βελάκια: 1 cm, Shift: 10 cm). «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
@@ -631,6 +682,8 @@ svg.addEventListener('pointerdown',e=>{
   }
   const [w,h]=SYMBOX[tool], ctr=tool==='conn'||PRODUCTS[tool]||ELEC[tool], s=snapPoint(p.x-(ctr?w/2:0),p.y-(ctr?h/2:0),null,e.altKey);
   const el={id:newId(),type:tool,x:s.x,y:s.y,rot:0,flip:false};
+  if(ELEC[tool]&&ELEC[tool].watt) el.watt=ELEC[tool].watt;
+  if(tool==='spot'){el.x=n(p.x-w/2); el.y=n(p.y-ELEC.spot.mount[1]); if(!e.altKey&&!mountSpot(el)) toast('Δεν βρέθηκε πλαίσιο κοντά: ο προβολέας μπήκε ελεύθερα.');}
   S.els.push(el); stackSnap(el); sel=el.id; tool='select'; commit(); renderAll();
 });
 function customFromDrag(x0,y0,p,free){
@@ -686,7 +739,7 @@ svg.addEventListener('pointermove',e=>{
 function endPointer(e){
   if(pan){pan=null; svg.classList.remove('pan');}
   if(resize){const m=resize.moved, el=byId(sel); resize=null; guides=null; if(m&&el){enforce(el); commit(); renderAll();} else renderPlan(); return;}
-  if(drag){const m=drag.moved, el=byId(sel); drag=null; guides=null; if(m){if(el){enforce(el); stackSnap(el);} commit(); renderAll();} else renderPlan();}
+  if(drag){const m=drag.moved, el=byId(sel); drag=null; guides=null; if(m){if(el){enforce(el); stackSnap(el); if(!e.altKey) mountSpot(el);} commit(); renderAll();} else renderPlan();}
   if(drawing){const p=toCm(e);
     const el=drawing.type==='floor'?floorFromDrag(drawing.x0,drawing.y0,p,e.altKey):drawing.type==='custom'?customFromDrag(drawing.x0,drawing.y0,p,e.altKey):drawing.type==='store'?storeFromDrag(drawing.x0,drawing.y0,p,e.altKey):profFromDrag(drawing.type,drawing.x0,drawing.y0,p.x,p.y,e.altKey);
     el.id=newId(); drawing=null; guides=null; S.els.push(el); sel=el.id;
@@ -732,6 +785,7 @@ $('insp').addEventListener('change',e=>{
   const el=byId(sel); if(!el) return; const t=e.target;
   if(t.id==='i-len') el.len=Math.max(1,Math.round(+t.value*10)/10||el.len);
   if(t.id==='i-ang'){setAngle(el,+t.value||0); commit(); renderAll(); return;}
+  if(t.id==='i-watt'){const v=Math.max(0,Math.round(+t.value)||0); if(v) el.watt=v; else delete el.watt; commit(); renderAll(); return;}
   if(t.id==='i-x') el.x=+t.value||0;
   if(t.id==='i-y') el.y=+t.value||0;
   if(el.type==='custom'&&['i-cw','i-cd','i-ch','i-cname'].includes(t.id)){
@@ -780,7 +834,7 @@ document.addEventListener('keydown',e=>{
   const k=e.key, mod=e.ctrlKey||e.metaKey;
   if(mod&&k.toLowerCase()==='z'){e.preventDefault();undo();return;}
   if(mod&&k.toLowerCase()==='d'){e.preventDefault();act('dup');return;}
-  const tk={v:'select',1:'p67',2:'p68',3:'door',4:'conn',5:'store',6:'cube',7:'pylon',8:'desk',9:'banner',p:'pylon300',c:'custom',e:'socket',m:'strip',b:'panel',d:'floor'}[k.toLowerCase()];
+  const tk={v:'select',1:'p67',2:'p68',3:'door',4:'conn',5:'store',6:'cube',7:'pylon',8:'desk',9:'banner',p:'pylon300',c:'custom',e:'socket',m:'strip',b:'panel',l:'spot',d:'floor'}[k.toLowerCase()];
   if(tk&&!mod){tool=tk;renderTools();renderPlan();return;}
   if(k==='+'||k==='='){zoomAt(1.3);return;}
   if(k==='-'){zoomAt(1/1.3);return;}

@@ -104,7 +104,13 @@ function floorName(el){
 const ELEC={
   socket:{name:'Πρίζα', code:'ΠΡΙΖΑ', w:14, d:14, key:'E'},
   strip: {name:'Πολύπριζο', code:'ΠΟΛΥΠΡΙΖΟ', w:44, d:12, outlets:4, key:'M'},
-  panel: {name:'Ηλεκτρολογικός πίνακας', code:'Η/Π ΠΙΝΑΚΑΣ', w:40, d:20, key:'B'}};
+  panel: {name:'Ηλεκτρολογικός πίνακας', code:'Η/Π ΠΙΝΑΚΑΣ', w:40, d:20, key:'B', supply:true},
+  // Προβολέας: μπαίνει πάνω σε πλαίσιο (σφιγκτήρας στο προφίλ) με τον βραχίονα προς το εσωτερικό του περιπτέρου
+  spot:  {name:'Προβολέας', code:'ΠΡΟΒΟΛΕΑΣ', w:16, d:40, key:'L', watt:50, mount:[8,4], reach:35}};
+// Ετικέτες Watt: «Κατανάλωση» για ό,τι καταναλώνει, «Παροχή» για τον πίνακα (η διαθέσιμη ισχύς της έκθεσης)
+const elecLoad=()=>S.els.filter(e=>isElec(e)&&!ELEC[e.type].supply).reduce((t,e)=>t+(+e.watt||0),0);
+const elecSupply=()=>S.els.filter(e=>isElec(e)&&ELEC[e.type].supply).reduce((t,e)=>t+(+e.watt||0),0);
+const fmtW=v=>Math.round(v).toLocaleString('el-GR')+' W';
 const ELEC_COL='#C8382C';
 Object.entries(ELEC).forEach(([k,e])=>{SYMBOX[k]=[e.w,e.d];});
 const isElec=e=>!!(e&&ELEC[e.type]);
