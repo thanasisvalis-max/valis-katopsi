@@ -490,8 +490,8 @@ function bomRows(){
       desc=e.type==='p67'?(lit(e)?'15 cm με LED':'15 cm χωρίς LED'):'4,5 cm χωρίς LED'; st=e.st||''; key=code+desc+len+st;}
     else if(e.type==='door'){code='DOOR';desc=`Πόρτα ${DOOR.w}×${S.H} · εκτυπώσεις: φύλλο ${String(DOOR.leafW).replace('.',',')}×${String(DOOR.leafH).replace('.',',')}, πλαϊνό ${DOOR.side}×${DOOR.sideH}, κορωνίδα ${DOOR.w}×${Math.max(0,S.H-DOOR.sideH)}`;st=e.st||''; key='door'+st;}
     else if(isProd(e)){const p=pdef(e); code=p.code;
-      const pt=e.type==='banner'?'εκτύπωση 2 όψεις':e.type==='desk'?'εκτύπωση μπροστά + 2 πλαϊνά':e.top==='melamine'?'4 πλευρές εκτύπωση + μελαμίνη πάνω':'5 πλευρές εκτύπωση';
-      desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; st=e.st||''; key=e.type+(e.type==='custom'?p.code+p.dims:'')+(e.top==='melamine'?'-m':'')+st;}
+      const pt=e.type==='banner'?'εκτύπωση 2 όψεις':e.type==='desk'?(e.print==='front'?'εκτύπωση μόνο μπροστά':'εκτύπωση μπροστά + 2 πλαϊνά'):e.top==='melamine'?'4 πλευρές εκτύπωση + μελαμίνη πάνω':'5 πλευρές εκτύπωση';
+      desc=(e.type==='banner'?`${p.w}×${p.h} cm, προφίλ ${p.bar} cm, με πόδια`:`${p.w}×${p.d}×${p.h} cm (Π×Β×Υ)`)+' · '+pt; st=e.st||''; key=e.type+(e.type==='custom'?p.code+p.dims:'')+(e.top==='melamine'?'-m':'')+(e.print==='front'?'-f':'')+st;}
     else if(isElec(e)){const x=ELEC[e.type]; code=x.code; desc=x.name+(x.outlets?` ${x.outlets} θέσεων`:''); key='elec-'+e.type;}
     else {code='CONN';desc='Σύνδεσμος προφίλ';key='conn';}
     g[key]=g[key]||{code,desc,len,st,qty:0}; g[key].qty++;});
@@ -565,7 +565,7 @@ function renderInspector(){
   } else {
     const door=el.type==='door';
     const pr=pdef(el);
-    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':isElec(el)?ELEC[el.type].name:'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':isElec(el)?'ΗΛΕΚΤΡ.':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>${pr.custom?customFields(el):''}${stButtons(el)}`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${pdef(si.below).code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
+    h=`<div class="selhead"><b>${pr?pr.code:door?'Πόρτα':isElec(el)?ELEC[el.type].name:'Σύνδεσμος'}</b><span class="code">${pr?pr.dims:door?'DOOR':isElec(el)?'ΗΛΕΚΤΡ.':'CONN'}</span></div>${pr?`<div class="frame">${pr.w} × ${pr.d} cm κάτοψη · ύψος ${pr.h} cm</div>${pr.custom?customFields(el):''}${stButtons(el)}`:''}${pr&&canStack(el)?(()=>{const si=stackInfo()[el.id]; return si.level?`<div class="v3d-print">Στοίβα: τεμάχιο ${si.level+1} · πάνω σε ${pdef(si.below).code} · βάση στα ${fmt(si.base)} cm</div>`:'';})():''}${pr&&el.type==='desk'?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="dprint" data-v="front3" aria-pressed="${el.print!=='front'}">Μπροστά + 2 πλαϊνά</button><button data-act="dprint" data-v="front" aria-pressed="${el.print==='front'}">Μόνο μπροστά</button></div>`:''}${pr.topOption?`<div class="lbl">Εκτύπωση</div><div class="seg"><button data-act="top" data-v="print" aria-pressed="${el.top!=='melamine'}">5 πλευρές</button><button data-act="top" data-v="melamine" aria-pressed="${el.top==='melamine'}">4 πλευρές + μελαμίνη πάνω</button></div>`:''}${pr&&el.type==='desk'?`<p class="note">Τυπώνονται η μπροστινή (παχιά γραμμή στην κάτοψη) και οι 2 πλαϊνές όψεις.</p>`:''}
     ${xy}
     ${door?`${stButtons(el)}<div class="lbl">Φορά</div><div class="seg"><button data-act="flip" title="F">Αλλαγή πλευράς</button><button data-act="inv" title="I" aria-pressed="${!!el.inv}">Αναστροφή</button></div><p class="note">Σταθερή διάσταση. Σέρνεται ελεύθερα ανά 1 cm, χωρίς μαγνήτη (βελάκια: 1 cm, Shift: 10 cm). «Αλλαγή πλευράς» = πλευρά μεντεσέ (F). «Αναστροφή» = το φύλλο ανοίγει προς την άλλη μεριά του τοίχου (I).</p>`:''}
     ${acts}`;
@@ -716,6 +716,7 @@ function act(a,v){
   if(a==='fmat'&&el.type==='floor'){el.mat=v; if(v==='plate'&&!el.plate) el.plate='lightwood';}
   if(a==='fcol'&&el.type==='floor') el.color=v;
   if(a==='top'&&pdef(el)&&pdef(el).topOption) el.top=v;
+  if(a==='dprint'&&el.type==='desk'){ if(v==='front') el.print='front'; else delete el.print; }
   if(a==='inv'&&el.type==='door'){
     // η γραμμή του τοίχου (μπάρα 100 cm της πόρτας) μένει στη θέση της, αλλάζει μόνο η μεριά του φύλλου
     const at=e=>{const m=symMatrix(e).m; return [m[0]*50.11+m[2]*2.67+m[4], m[1]*50.11+m[3]*2.67+m[5]];};

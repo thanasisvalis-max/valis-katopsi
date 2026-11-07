@@ -121,5 +121,8 @@ function pdef(el){
     w:el.w, d:el.d, h:el.h, fill:el.fill||CUSTOM.fill, print:['s0','s1','s2','s3'], topOption:true, custom:true};
   return PRODUCTS[el.type]||null;
 }
-function printFaces(el){const p=pdef(el); if(!p) return []; return p.topOption&&el.top!=='melamine'?[...p.print,'top']:p.print;}
+//  desk: επιλογή ανά τεμάχιο el.print = 'front3' (μπροστά + 2 πλαϊνά, default) ή 'front' (μόνο μπροστά)
+function printFaces(el){const p=pdef(el); if(!p) return [];
+  if(el.type==='desk'&&el.print==='front') return ['s2'];
+  return p.topOption&&el.top!=='melamine'?[...p.print,'top']:p.print;}
 Object.entries(PRODUCTS).forEach(([k,p])=>{SYMBOX[k]=[p.w,p.d];});
