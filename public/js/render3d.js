@@ -86,6 +86,8 @@ function makeRMats(){
     alu:   std({color:'#D3D6D9',metalness:.75,roughness:.32}),
     door:  std({color:'#EDEDEA',roughness:.6}),
     melamine: std({color:'#CFCAC0',roughness:.55}),
+    spot:  std({color:'#1E1F22',metalness:.6,roughness:.35}),
+    lens:  std({color:'#FFF4D6',emissive:'#FFF1CC',emissiveIntensity:2.2,roughness:.2}),
     floor: std({map:carpet,roughness:1}),
     person:std({color:'#4A5160',roughness:.8}),
     carpetTex:carpet, extra:{}};
@@ -96,6 +98,8 @@ function matFor(key,lit,M){
   if(key==='frame'||key==='alu') return M.alu;
   if(key==='door') return M.door;
   if(key==='melamine') return M.melamine;
+  if(key==='spot') return M.spot;
+  if(key==='lens') return M.lens;
   if(key==='floor') return M.floor;
   if(String(key).startsWith('c_')) return M.extra[key]||(M.extra[key]=new THREE.MeshStandardMaterial({color:'#'+key.slice(2),roughness:.55}));
   return M.white;
@@ -181,8 +185,17 @@ function buildPanelLights(scene,R,surface){
   scene.add(g); return g;
 }
 
+// προβολείς: SpotLight από την κεφαλή προς το γραφικό του πλαισίου (χωρίς σκιές, για ταχύτητα)
+function buildSpotLights(scene,aim){
+  const g=new THREE.Group(); g.name='SPOT_LIGHTS';
+  S.els.filter(e=>e.type==='spot').slice(0,RD.maxSpots).forEach(el=>{const a=aim(el), f=a.from.map(v=>v/100), t=a.to.map(v=>v/100);
+    const L=new THREE.SpotLight('#FFF1D6',RD.spot,6,RD.spotAngle,RD.spotPenumbra,2);
+    L.position.set(...f); L.target.position.set(...t); g.add(L,L.target);});
+  scene.add(g); return g;
+}
+
 /* ---------- δημόσια API ---------- */
-export function build(R,{surface}){
+export function build(R,{surface,spotAim}){
   dispose(R);
   const scene=new THREE.Scene(), M=makeRMats(), ctr=R.center;
   scene.background=new THREE.Color(RD.bg); scene.fog=new THREE.Fog(RD.bg,RD.fogNear,RD.fogFar);
@@ -191,7 +204,7 @@ export function build(R,{surface}){
   const sun=new THREE.DirectionalLight('#FFF3E2',RD.sun); sun.position.set(ctr.x-3,9,ctr.z+5); sun.target.position.copy(ctr);
   sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); const sc=sun.shadow.camera, s=Math.max(S.W,S.D)/100/2+3;
   Object.assign(sc,{left:-s,right:s,top:s,bottom:-s,near:1,far:30}); sun.shadow.radius=4; sun.shadow.bias=-.0004; scene.add(sun,sun.target);
-  buildHall(scene,ctr,M); scene.add(buildBooth(R,M)); buildPanelLights(scene,R,surface);
+  buildHall(scene,ctr,M); scene.add(buildBooth(R,M)); buildPanelLights(scene,R,surface); if(spotAim) buildSpotLights(scene,spotAim);
   const r=R.renderer, sz=r.getSize(new THREE.Vector2());
   r.shadowMap.enabled=true; r.shadowMap.type=THREE.PCFSoftShadowMap; r.toneMapping=THREE.ACESFilmicToneMapping; r.toneMappingExposure=RD.exposure;
   const composer=new EffectComposer(r); composer.setPixelRatio(r.getPixelRatio()); composer.setSize(sz.x,sz.y);

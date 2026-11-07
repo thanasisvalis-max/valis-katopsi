@@ -37,6 +37,7 @@ function parts(){
     } else if(el.type==='conn'){
       const b=bbox(el); out.push({name:'CONN',quad:rect(b.x,b.y,b.w,b.h),z0:0,z1:H,face:all('alu')});
     } else if(el.type==='door') out.push(...doorPieces(el));
+    else if(el.type==='spot') out.push(...spotPieces(el));
     else if(isProd(el)){
       const pr=pdef(el), tf=tfOf(el), z0=canStack(el)?(STK[el.id]||{base:0}).base:0;
       prodRects(el).forEach(([x,y,w,d,role])=>{
@@ -72,6 +73,20 @@ function doorPieces(el){
   out.push({name:'DOOR_CONN',quad:rect(100.33,0.29,4.56,4.56).map(tf),z0:0,z1:H,face:()=>'alu'});
   return out;
 }
+/* Προβολέας βραχίονα πάνω σε πλαίσιο (σύμβολο κάτοψης 16 × 40, τοπικό +y = προς τα μέσα).
+   Σφιγκτήρας που «καβαλάει» την κορυφή του πλαισίου, οριζόντιος βραχίονας και κεφαλή με τον φακό στραμμένο στο γραφικό. */
+function spotPieces(el){
+  const tf=tfOf(el), H=S.H, rect=(x,y,w,h)=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]].map(tf);
+  const o=tf([8,0]), e=tf([8,1]), d=[e[0]-o[0],e[1]-o[1]]; // κατεύθυνση βραχίονα στην κάτοψη
+  const all=m=>()=>m;
+  return [
+    {name:'PROVOLEAS_SFIGKTIRAS',spot:el.id,quad:rect(3,-1,10,10),z0:H-8,z1:H+3,face:all('spot')},
+    {name:'PROVOLEAS_VRAXIONAS',spot:el.id,quad:rect(7,9,2,19),z0:H+1,z1:H+3,face:all('spot')},
+    {name:'PROVOLEAS_KEFALI',spot:el.id,quad:rect(3,26,10,12),z0:H-6,z1:H+4,
+      face:(tag,n)=>tag==='side'&&n[0]*d[0]+n[2]*d[1]<-.9?'lens':'spot'}];
+}
+// θέση κεφαλής και σημείο στόχευσης (cm, (x, ύψος, y)) για το φως του render
+const spotAim=el=>{const tf=tfOf(el), h=tf([8,27]), w=tf([8,4]); return {from:[h[0],S.H-1,h[1]],to:[w[0],S.H*.45,w[1]]};};
 // σώμα προϊόντος LED (χωρίς πόδια) και οι 4 κάθετες όψεις του
 const parts1=el=>{const pr=pdef(el), tf=tfOf(el), r=prodRects(el).find(o=>o[4]==='body'); if(!r) return null;
   const z0=canStack(el)?stackInfo()[el.id].base:0, [x,y,w,d]=r; return {quad:[[x,y],[x+w,y],[x+w,y+d],[x,y+d]].map(tf),z0,z1:z0+pr.h};};
@@ -202,7 +217,7 @@ function validGfx(){ return Object.entries(S.gfx||{}).map(([k,g])=>({k,g,sf:surf
 
 /* ---------- 3. COLLADA (.dae) για SketchUp ----------
    Z πάνω, μονάδα cm, κάθε πλαίσιο ξεχωριστό node. Γραφικά = ξεχωριστά nodes με υφή από textures/. */
-const DAE_NAME={graphic:'GRAFIKO',frame:'PLAISIO',alu:'ALOUMINIO',door:'PORTA',floor:'DAPEDO',melamine:'MELAMINI'};
+const DAE_NAME={graphic:'GRAFIKO',frame:'PLAISIO',alu:'ALOUMINIO',door:'PORTA',floor:'DAPEDO',melamine:'MELAMINI',spot:'PROVOLEAS',lens:'FAKOS_PROVOLEA'};
 function toDAE(list,gfx){
   const hex=h=>[1,3,5].map(i=>(parseInt(h.substr(i,2),16)/255).toFixed(4)).join(' ');
   const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
@@ -297,7 +312,7 @@ async function refreshGraphics(){
 }
 /* ---------- Render (φωτορεαλιστικό): module render3d.js, φορτώνει μόνο όταν ζητηθεί ---------- */
 let RM=null;
-async function buildRender(){ if(!R) return; RM=RM||await import('./render3d.js'); if(R&&R.rmode){RM.build(R,{surface}); R.rdirty=true;} }
+async function buildRender(){ if(!R) return; RM=RM||await import('./render3d.js'); if(R&&R.rmode){RM.build(R,{surface,spotAim}); R.rdirty=true;} }
 async function toggleRender(on){
   if(!R) return; R.rmode=on; $('v3d-render').setAttribute('aria-pressed',String(on)); $('v3d-png').textContent=on?'Λήψη render (PNG)':'Εικόνα PNG';
   if(on){ toast('Ετοιμάζω το render…'); await buildRender(); toast('Render έτοιμο. Γύρνα την κάμερα όπως θες και πάτα «Λήψη render».'); }
@@ -553,4 +568,4 @@ $('v3d-color').addEventListener('change',()=>commit());
 $('v3d-door').addEventListener('change',e=>{S.doorOpen3d=e.target.checked; commit(); rebuildModel();});
 $('v3d-person').addEventListener('change',e=>{S.person3d=e.target.checked; if(R){R.person.visible=S.person3d; if(R.rmode) buildRender();} commit();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&R) close3D();});
-export {parts,toDAE,prismTris,surface,setGraphic,select,exportDAE};
+export {parts,toDAE,prismTris,surface,setGraphic,select,exportDAE,spotAim};
